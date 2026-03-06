@@ -1,7 +1,8 @@
 const cursor = require('./cursor');
 const windsurf = require('./windsurf');
+const claude = require('./claude');
 
-const editors = [cursor, windsurf];
+const editors = [cursor, windsurf, claude];
 
 /**
  * Get all chats from all editor adapters, sorted by most recent first.

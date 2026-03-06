@@ -66,7 +66,7 @@ function listChats(opts) {
 
   console.log(chalk.gray('─'.repeat(120)));
   console.log(chalk.dim(`\nUse ${chalk.white('view <id-prefix>')} to view a conversation.`));
-  console.log(chalk.dim(`Use ${chalk.white('--editor cursor|windsurf')} to filter by editor. Use ${chalk.white('--folder <path>')} to filter by project.\n`));
+  console.log(chalk.dim(`Use ${chalk.white('--editor cursor|windsurf|claude')} to filter by editor. Use ${chalk.white('--folder <path>')} to filter by project.\n`));
 }
 
 function viewChat(chatIdPrefix, opts) {
@@ -242,7 +242,7 @@ program
   .description('List all chats across all supported editors')
   .option('-l, --limit <n>', 'Limit number of results')
   .option('-f, --folder <path>', 'Filter by project folder path')
-  .option('-e, --editor <name>', 'Filter by editor (cursor, windsurf)')
+  .option('-e, --editor <name>', 'Filter by editor (cursor, windsurf, claude)')
   .option('-a, --all', 'Include empty/unnamed chats')
   .action(listChats);
 
@@ -266,7 +266,7 @@ program
   .command('search <query>')
   .description('Search chats by name, folder, or content')
   .option('-d, --deep', 'Also search message content (slower)')
-  .option('-e, --editor <name>', 'Filter by editor (cursor, windsurf)')
+  .option('-e, --editor <name>', 'Filter by editor (cursor, windsurf, claude)')
   .action(searchChats);
 
 program.parse();
