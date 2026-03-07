@@ -48,6 +48,7 @@ For local development, run `npm run dev` from the repo root. That starts both th
 - **Deep Analysis** — Tool frequency, model distribution, token breakdown with drill-down
 - **Compare** — Side-by-side editor comparison with efficiency ratios
 - **Refetch** — One-click cache rebuild with live progress
+- **Relay** — Multi-user context sharing with MCP server for cross-team AI session querying
 
 ## Supported Editors
 
@@ -72,13 +73,73 @@ For local development, run `npm run dev` from the repo root. That starts both th
 
 Codex sessions are read from `${CODEX_HOME:-~/.codex}/sessions/**/*.jsonl`. Reasoning summaries may appear in transcripts when Codex records them in clear text, but encrypted reasoning content is not readable. Codex Desktop and CLI sessions are aggregated into one `codex` editor in analytics.
 
+## Relay
+
+Relay enables multi-user context sharing across a team. One person starts a relay server, others join and share selected project sessions. An MCP server is exposed so AI clients can query across everyone's coding history.
+
+### Start a relay
+
+```bash
+npx agentlytics --relay
+```
+
+This starts a relay server on port `4638` and prints the join command and MCP endpoint:
+
+```
+  ⚡ Agentlytics Relay
+
+  Share this command with your team:
+    npx agentlytics --join 192.168.1.16:4638 --username <name>
+
+  MCP server endpoint (add to your AI client):
+    http://192.168.1.16:4638/mcp
+```
+
+### Join a relay
+
+```bash
+npx agentlytics --join <host:port> --username <name>
+```
+
+You'll be prompted to select which projects to share. The client then syncs session data to the relay every 30 seconds.
+
+### MCP Tools
+
+Connect your AI client to the relay's MCP endpoint (`http://<host>:4638/mcp`) to access these tools:
+
+| Tool | Description |
+|------|-------------|
+| `list_users` | List all connected users and their shared projects |
+| `search_sessions` | Full-text search across all users' chat messages |
+| `get_user_activity` | Get recent sessions for a specific user |
+| `get_session_detail` | Get full conversation messages for a session |
+
+Example query to your AI: *"What did alice do in auth.js?"*
+
+### Relay REST API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /relay/health` | Health check and user count |
+| `GET /relay/users` | List connected users |
+| `GET /relay/search?q=<query>` | Search messages across all users |
+| `GET /relay/activity/:username` | User's recent sessions |
+| `GET /relay/session/:chatId` | Full session detail |
+| `POST /relay/sync` | Receives data from join clients |
+
+> Relay is designed for trusted local networks. No authentication is required in v1.
+
 ## How It Works
 
 ```
 Editor files/APIs → editors/*.js → cache.js (SQLite) → server.js (REST) → React SPA
 ```
 
-All data is normalized into a local SQLite cache at `~/.agentlytics/cache.db`. The Express server exposes read-only REST endpoints consumed by the React frontend.
+```
+Relay:  join clients → POST /relay/sync → relay.db (SQLite) → MCP server → AI clients
+```
+
+All data is normalized into a local SQLite cache at `~/.agentlytics/cache.db`. The Express server exposes read-only REST endpoints consumed by the React frontend. Relay data is stored separately in `~/.agentlytics/relay.db`.
 
 ## API
 
