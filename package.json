@@ -10,6 +10,7 @@
     "index.js",
     "cache.js",
     "server.js",
+    "share-image.js",
     "editors/",
     "ui/src/",
     "ui/index.html",
