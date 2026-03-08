@@ -118,6 +118,7 @@ function parseSessionFile(filePath) {
       title: state.customTitle || null,
       requests: state.requests || [],
       format: 'jsonl',
+      selectedModel: state.inputState?.selectedModel?.metadata?.id || null,
     };
   } else if (ext === '.json') {
     let data;
@@ -128,6 +129,7 @@ function parseSessionFile(filePath) {
       title: data.customTitle || null,
       requests: data.requests || [],
       format: 'json',
+      selectedModel: data.inputState?.selectedModel?.metadata?.id || null,
     };
   }
   return null;
@@ -204,6 +206,7 @@ function collectSessions(dir, folder, source, chats) {
         encrypted: false,
         bubbleCount: meta.requestCount || 0,
         _filePath: filePath,
+        _modelPref: meta.selectedModel || null,
       });
     } catch { /* skip */ }
   }
@@ -221,6 +224,7 @@ function peekMeta(filePath) {
         createdAt: data.creationDate || data.lastMessageDate,
         requestCount: data.requests?.length || 0,
         firstUserText: firstText.substring(0, 120) || null,
+        selectedModel: data.inputState?.selectedModel?.metadata?.id || null,
       };
     } catch { return {}; }
   }
@@ -251,6 +255,7 @@ function peekMeta(filePath) {
       createdAt: state.creationDate,
       requestCount: null,
       firstUserText: null,
+      selectedModel: state.inputState?.selectedModel?.metadata?.id || null,
     };
   } catch { return {}; }
 }
@@ -301,6 +306,7 @@ function getMessages(chat) {
       const meta = req.result?.metadata;
       messages.push({
         role: 'assistant', content: responseText,
+        _model: parsed.selectedModel || null,
         _inputTokens: meta?.promptTokens, _outputTokens: meta?.outputTokens,
         _toolCalls,
       });

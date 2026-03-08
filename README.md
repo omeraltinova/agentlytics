@@ -5,8 +5,8 @@
 <h1 align="center">Agentlytics</h1>
 
 <p align="center">
-  <strong>Unified analytics for your AI coding agents</strong><br>
-  <sub>Cursor · Windsurf · Claude Code · VS Code Copilot · Zed · Antigravity · OpenCode · Codex · Gemini CLI · Copilot CLI · Cursor Agent · Command Code</sub>
+  <strong>Your Cursor, Windsurf, Claude Code sessions — analyzed, unified, tracked.</strong><br>
+  <sub>One command to turn scattered AI conversations from <b>14 editors</b> into a unified analytics dashboard.<br>Sessions, costs, models, tools — finally in one place. 100% local.</sub>
 </p>
 
 <p align="center">
@@ -22,56 +22,83 @@
 
 ---
 
-Agentlytics reads local chat history from every major AI coding assistant and presents a unified analytics dashboard in your browser. **No data ever leaves your machine.**
+## The Problem
 
-## Quick Start
+You switch between Cursor, Windsurf, Claude Code, VS Code Copilot, and more — each with its own siloed conversation history.
+
+- ✗ Sessions scattered across editors, no unified view
+- ✗ No idea how much you're spending on AI tokens
+- ✗ Can't compare which editor is more effective
+- ✗ Can't search across all your AI conversations
+- ✗ No way to share session context with your team
+
+## The Solution
+
+**One command. Full picture. All local.**
 
 ```bash
 npx agentlytics
 ```
 
-Opens at **http://localhost:4637**. Requires Node.js ≥ 20.19 or ≥ 22.12, macOS.
+Opens at **http://localhost:4637**. Requires Node.js ≥ 20.19 or ≥ 22.12, macOS. No data ever leaves your machine.
 
-To only build the cache database without starting the server:
+```
+$ npx agentlytics
+
+(● ●) [● ●] Agentlytics
+{● ●} <● ●> Unified analytics for your AI coding agents
+
+Looking for AI coding agents...
+   ✓ Cursor              498 sessions
+   ✓ Windsurf             20 sessions
+   ✓ Windsurf Next        56 sessions
+   ✓ Claude Code           6 sessions
+   ✓ VS Code              23 sessions
+   ✓ Zed                   1 session
+   ✓ Codex                 3 sessions
+   ✓ Gemini CLI            2 sessions
+   ...and 6 more
+
+(● ●) [● ●] {● ●} <● ●> ✓ 691 analyzed, 360 cached (27.1s)
+✓ Dashboard ready at http://localhost:4637
+```
+
+To only build the cache without starting the server:
 
 ```bash
 npx agentlytics --collect
 ```
 
-For local development, run `npm run dev` from the repo root. That starts both the backend on `http://localhost:4637` and the Vite frontend on `http://localhost:5173`.
-
 ## Features
 
 - **Dashboard** — KPIs, activity heatmap, editor breakdown, coding streaks, token economy, peak hours, top models & tools
-- **Sessions** — Search, filter, full conversation viewer with syntax highlighting and diff views
-- **Projects** — Per-project analytics: sessions, messages, tokens, models, editor breakdown
-- **Deep Analysis** — Tool frequency, model distribution, token breakdown with drill-down
-- **Compare** — Side-by-side editor comparison with efficiency ratios
-- **Refetch** — One-click cache rebuild with live progress
-- **Relay** — Multi-user context sharing with MCP server for cross-team AI session querying
+- **Sessions** — Search, filter, and read full conversations with syntax highlighting. Open any chat in a slide-over sidebar.
+- **Costs** — Estimate your AI spend broken down by model, editor, project, and month. Spot your most expensive sessions.
+- **Projects** — Per-project analytics: sessions, messages, tokens, models, editor breakdown, and drill-down detail views
+- **Deep Analysis** — Tool frequency heatmaps, model distribution, token breakdown, and filterable drill-down analytics
+- **Compare** — Side-by-side editor comparison with efficiency ratios, token usage, and session patterns
+- **Relay** — Share AI session context across your team via MCP
 
 ## Supported Editors
 
-| Editor | ID | Msgs | Tools | Models | Tokens |
-|--------|----|:----:|:-----:|:------:|:------:|
-| **Cursor** | `cursor` | ✅ | ✅ | ⚠️ | ⚠️ |
-| **Windsurf** | `windsurf` | ✅ | ✅ | ✅ | ✅ |
-| **Windsurf Next** | `windsurf-next` | ✅ | ✅ | ✅ | ✅ |
-| **Antigravity** | `antigravity` | ✅ | ✅ | ✅ | ✅ |
-| **Claude Code** | `claude-code` | ✅ | ✅ | ✅ | ✅ |
-| **VS Code** | `vscode` | ✅ | ✅ | ✅ | ✅ |
-| **VS Code Insiders** | `vscode-insiders` | ✅ | ✅ | ✅ | ✅ |
-| **Zed** | `zed` | ✅ | ✅ | ✅ | ❌ |
-| **OpenCode** | `opencode` | ✅ | ✅ | ✅ | ✅ |
-| **Codex** | `codex` | ✅ | ✅ | ✅ | ✅ |
-| **Gemini CLI** | `gemini-cli` | ✅ | ✅ | ✅ | ✅ |
-| **Copilot CLI** | `copilot-cli` | ✅ | ✅ | ✅ | ✅ |
-| **Cursor Agent** | `cursor-agent` | ✅ | ❌ | ❌ | ❌ |
-| **Command Code** | `commandcode` | ✅ | ✅ | ❌ | ❌ |
+| Editor | Msgs | Tools | Models | Tokens |
+|--------|:----:|:-----:|:------:|:------:|
+| **Cursor** | ✅ | ✅ | ⚠️ | ⚠️ |
+| **Windsurf** | ✅ | ✅ | ✅ | ✅ |
+| **Windsurf Next** | ✅ | ✅ | ✅ | ✅ |
+| **Antigravity** | ✅ | ✅ | ✅ | ✅ |
+| **Claude Code** | ✅ | ✅ | ✅ | ✅ |
+| **VS Code** | ✅ | ✅ | ✅ | ✅ |
+| **VS Code Insiders** | ✅ | ✅ | ✅ | ✅ |
+| **Zed** | ✅ | ✅ | ✅ | ❌ |
+| **OpenCode** | ✅ | ✅ | ✅ | ✅ |
+| **Codex** | ✅ | ✅ | ✅ | ✅ |
+| **Gemini CLI** | ✅ | ✅ | ✅ | ✅ |
+| **Copilot CLI** | ✅ | ✅ | ✅ | ✅ |
+| **Cursor Agent** | ✅ | ❌ | ❌ | ❌ |
+| **Command Code** | ✅ | ✅ | ❌ | ❌ |
 
 > Windsurf, Windsurf Next, and Antigravity must be running during scan.
-
-Codex sessions are read from `${CODEX_HOME:-~/.codex}/sessions/**/*.jsonl`. Reasoning summaries may appear in transcripts when Codex records them in clear text, but encrypted reasoning content is not readable. Codex Desktop and CLI sessions are aggregated into one `codex` editor in analytics.
 
 ## Relay
 

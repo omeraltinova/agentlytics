@@ -195,7 +195,7 @@ function callRpc(port, csrf, method, body, isHttps = false, extCsrf = null, useM
       `-H "x-codeium-csrf-token: ${actualCsrf}" ` +
       `-d ${JSON.stringify(data)} ` +
       `--max-time 10`,
-      { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }
+      { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     return JSON.parse(result);
   } catch { return null; }

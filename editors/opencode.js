@@ -2,8 +2,22 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// OpenCode uses XDG paths cross-platform (~/.local/share/... on all platforms)
-const STORAGE_DIR = path.join(os.homedir(), '.local', 'share', 'opencode', 'storage');
+// OpenCode stores data in different locations depending on the platform
+// - Windows: %LOCALAPPDATA%\opencode\storage (not Roaming)
+// - macOS/Linux: ~/.local/share/opencode/storage (XDG path)
+function getOpenCodeStoragePath() {
+  const home = os.homedir();
+  switch (process.platform) {
+    case 'win32':
+      return path.join(home, 'AppData', 'Local', 'opencode', 'storage');
+    case 'darwin':
+    case 'linux':
+    default:
+      return path.join(home, '.local', 'share', 'opencode', 'storage');
+  }
+}
+
+const STORAGE_DIR = getOpenCodeStoragePath();
 const SESSION_DIR = path.join(STORAGE_DIR, 'session');
 const MESSAGE_DIR = path.join(STORAGE_DIR, 'message');
 const PART_DIR = path.join(STORAGE_DIR, 'part');

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Cpu, ArrowRight, Search, Merge, MessageSquare, Zap, FolderOpen, ChevronDown, ChevronRight, User } from 'lucide-react'
+import { Users, Search, Merge, MessageSquare, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
 import KpiCard from '../components/KpiCard'
@@ -36,7 +36,7 @@ function ProportionBar({ segments, height = 6 }) {
 }
 
 // Left sidebar: team members grouped by project (folder-tree view)
-function TeamSidebar({ userList, userColorMap, onUserClick, selectedUser }) {
+function TeamSidebar({ userList, userColorMap, selectedUser }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const navigate = useNavigate()
 

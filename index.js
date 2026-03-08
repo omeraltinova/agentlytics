@@ -174,7 +174,8 @@ if (noCache) {
   }
 }
 
-// ── Warn about installed-but-not-running Windsurf variants ─
+// ── Warn about installed-but-not-running Windsurf variants (macOS only) ─
+if (process.platform === 'darwin') {
 const WINDSURF_VARIANTS = [
   { name: 'Windsurf', app: '/Applications/Windsurf.app', dataDir: path.join(HOME, '.codeium', 'windsurf'), ide: 'windsurf' },
   { name: 'Windsurf Next', app: '/Applications/Windsurf Next.app', dataDir: path.join(HOME, '.codeium', 'windsurf-next'), ide: 'windsurf-next' },
@@ -208,6 +209,7 @@ const WINDSURF_VARIANTS = [
     console.log('');
   }
 })();
+}
 
 // Initialize cache DB
 cache.initDb();

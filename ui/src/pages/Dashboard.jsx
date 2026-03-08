@@ -8,7 +8,9 @@ import ActivityHeatmap from '../components/ActivityHeatmap'
 import DateRangePicker from '../components/DateRangePicker'
 import { editorColor, editorLabel, formatNumber, formatCost, dateRangeToApiParams } from '../lib/constants'
 import EditorIcon from '../components/EditorIcon'
-import { fetchDailyActivity, fetchOverview as fetchOverviewApi, fetchDashboardStats, fetchShareImage, fetchChats, fetchCosts } from '../lib/api'
+import { fetchDailyActivity, fetchOverview as fetchOverviewApi, fetchDashboardStats, fetchChats, fetchCosts } from '../lib/api'
+import ChatSidebar from '../components/ChatSidebar'
+import ShareModal from '../components/ShareModal'
 import { useTheme } from '../lib/theme'
 import SectionTitle from '../components/SectionTitle'
 
@@ -31,8 +33,9 @@ export default function Dashboard({ overview }) {
   const [dateRange, setDateRange] = useState(null)
   const { dark } = useTheme()
   const [costs, setCosts] = useState(null)
-  const [sharing, setSharing] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [largeContextChats, setLargeContextChats] = useState(null)
+  const [selectedChatId, setSelectedChatId] = useState(null)
   const txtColor = dark ? '#888' : '#555'
   const txtDim = dark ? '#555' : '#999'
   const gridColor = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
@@ -167,54 +170,6 @@ export default function Dashboard({ overview }) {
     return s + v * midpoints[i]
   }, 0) / tk.sessions).toFixed(1) : '—') : '—'
 
-  const handleShare = async () => {
-    setSharing(true)
-    try {
-      const svg = await fetchShareImage()
-      if (!svg || svg.startsWith('{')) throw new Error('Failed to fetch image')
-
-      // Try PNG conversion via canvas, fallback to SVG download
-      let downloaded = false
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = 1600
-        canvas.height = 880
-        const ctx = canvas.getContext('2d')
-        const img = new Image()
-        const svgB64 = btoa(unescape(encodeURIComponent(svg)))
-        const dataUrl = `data:image/svg+xml;base64,${svgB64}`
-        await new Promise((resolve, reject) => {
-          img.onload = resolve
-          img.onerror = reject
-          img.src = dataUrl
-        })
-        ctx.drawImage(img, 0, 0, 1600, 880)
-        const pngUrl = canvas.toDataURL('image/png')
-        const a = document.createElement('a')
-        a.href = pngUrl
-        a.download = 'agentlytics.png'
-        a.click()
-        downloaded = true
-      } catch {
-        // Fallback: download SVG directly
-        const blob = new Blob([svg], { type: 'image/svg+xml' })
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = 'agentlytics.svg'
-        a.click()
-        URL.revokeObjectURL(a.href)
-        downloaded = true
-      }
-
-      if (downloaded) {
-        const text = encodeURIComponent("Here's my agentic coding stats using github.com/f/agentlytics")
-        window.open(`https://x.com/intent/post?text=${text}`, '_blank')
-      }
-    } catch (e) {
-      console.error('Share failed:', e)
-    }
-    setSharing(false)
-  }
 
   return (
     <div className="fade-in space-y-3">
@@ -222,13 +177,12 @@ export default function Dashboard({ overview }) {
       <div className="flex items-center justify-end gap-3">
         <DateRangePicker value={dateRange} onChange={setDateRange} />
         <button
-          onClick={handleShare}
-          disabled={sharing}
+          onClick={() => setShareOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1 text-[12px] rounded-md transition hover:opacity-80"
-          style={{ background: '#6366f1', color: '#fff', opacity: sharing ? 0.5 : 1 }}
+          style={{ background: '#6366f1', color: '#fff' }}
         >
           <Share2 size={12} />
-          {sharing ? 'Generating...' : 'Share Stats'}
+          Share Stats
         </button>
       </div>
 
@@ -492,10 +446,9 @@ export default function Dashboard({ overview }) {
                 return (
                   <div key={m.name} className="flex items-center gap-2">
                     <span className="text-[10px] w-3 text-right" style={{ color: 'var(--c-text3)' }}>{i + 1}</span>
+                    <span className="text-[9px] truncate w-28" style={{ color: 'var(--c-text2)' }} title={m.name}>{m.name}</span>
                     <div className="flex-1 h-4 rounded-sm overflow-hidden" style={{ background: 'var(--c-code-bg)' }}>
-                      <div className="h-full rounded-sm flex items-center px-1.5" style={{ width: `${(m.count / maxM * 100).toFixed(1)}%`, background: i === 0 ? '#6366f1' : i === 1 ? '#818cf8' : '#a5b4fc40' }}>
-                        <span className="text-[8px] truncate" style={{ color: i < 2 ? '#fff' : 'var(--c-text2)' }}>{m.name}</span>
-                      </div>
+                      <div className="h-full rounded-sm" style={{ width: `${(m.count / maxM * 100).toFixed(1)}%`, background: i === 0 ? '#6366f1' : i === 1 ? '#818cf8' : '#a5b4fc40' }} />
                     </div>
                     {modelCost ? <span className="text-[9px] w-12 text-right" style={{ color: '#10b981' }}>{formatCost(modelCost.cost)}</span> : null}
                     <span className="text-[10px] w-8 text-right" style={{ color: 'var(--c-text3)' }}>{m.count}</span>
@@ -543,7 +496,7 @@ export default function Dashboard({ overview }) {
                   key={c.id}
                   className="flex items-center gap-1.5 px-1.5 py-1 rounded-sm cursor-pointer transition hover:opacity-80"
                   style={{ background: c.bubbleCount >= 500 ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)' }}
-                  onClick={() => navigate(`/sessions/${c.id}`)}
+                  onClick={() => setSelectedChatId(c.id)}
                 >
                   <EditorIcon source={c.source} size={10} />
                   <span className="text-[10px] truncate flex-1" style={{ color: 'var(--c-text)' }}>{c.name || 'Untitled'}</span>
@@ -559,6 +512,8 @@ export default function Dashboard({ overview }) {
           </div>
         )}
       </div>
+      <ChatSidebar chatId={selectedChatId} onClose={() => setSelectedChatId(null)} />
+      <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   )
 }
