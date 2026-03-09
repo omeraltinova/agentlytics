@@ -179,4 +179,6 @@ function getMessages(chat) {
   return getMessagesForSession(chat.composerId);
 }
 
-module.exports = { name, getChats, getMessages };
+const labels = { 'opencode': 'OpenCode' };
+
+module.exports = { name, labels, getChats, getMessages };

@@ -112,23 +112,39 @@ function findLanguageServers() {
   _lsCache = [];
 
   // Language server executable name varies by platform
-  // Windows: language_server_windows_x64.exe, language_server_windows_x.exe, etc.
   const serverProcessName = IS_WINDOWS
     ? 'language_server_windows'
     : process.platform === 'darwin'
       ? 'language_server_macos'
       : 'language_server_linux';
 
+  // On macOS/Linux, also check env vars for WINDSURF_CSRF_TOKEN (newer Windsurf Next passes CSRF via env, not CLI arg)
+  const envCsrfByPid = {};
+  if (!IS_WINDOWS) {
+    try {
+      const psEnv = execSync('ps eww -A', { encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      for (const envLine of psEnv.split('\n')) {
+        const envCsrf = envLine.match(/WINDSURF_CSRF_TOKEN=(\S+)/);
+        if (envCsrf) {
+          const envPid = envLine.match(/^\s*(\d+)/);
+          if (envPid) envCsrfByPid[envPid[1]] = envCsrf[1];
+        }
+      }
+    } catch {}
+  }
+
   for (const proc of getProcessList()) {
     const { commandLine, pid } = proc;
-    if (!commandLine.includes(serverProcessName) || !commandLine.includes('--csrf_token')) continue;
+    if (!commandLine.includes(serverProcessName)) continue;
 
     const csrfMatch = commandLine.match(/--csrf_token\s+(\S+)/);
     const ideMatch = commandLine.match(/--ide_name\s+(\S+)/);
     const appDirMatch = commandLine.match(/--app_data_dir\s+(\S+)/);
-    if (!csrfMatch) continue;
 
-    const csrf = csrfMatch[1];
+    // Try CLI arg first, then env var fallback
+    const csrf = csrfMatch ? csrfMatch[1] : envCsrfByPid[pid] || null;
+    if (!csrf) continue;
+
     const ide = ideMatch ? ideMatch[1] : null;
     const appDataDir = appDirMatch ? appDirMatch[1] : null;
 
@@ -146,7 +162,6 @@ function findLanguageServers() {
     let port;
     if (serverPortMatch) {
       port = parseInt(serverPortMatch[1], 10);
-      // Verify the port is actually listening
       if (!ports.includes(port)) {
         port = Math.min(...ports);
       }
@@ -155,7 +170,6 @@ function findLanguageServers() {
     }
 
     if (ide || appDataDir) {
-      // Antigravity uses HTTPS on --server_port, Windsurf uses HTTP
       const isHttps = appDataDir?.includes('antigravity');
       _lsCache.push({ ide, appDataDir, port, csrf, pid, extCsrf: extCsrfMatch ? extCsrfMatch[1] : null, isHttps });
     }
@@ -466,4 +480,6 @@ function getMessages(chat) {
 
 function resetCache() { _lsCache = null; }
 
-module.exports = { name, sources, getChats, getMessages, resetCache };
+const labels = { 'windsurf': 'Windsurf', 'windsurf-next': 'Windsurf Next', 'antigravity': 'Antigravity' };
+
+module.exports = { name, sources, labels, getChats, getMessages, resetCache };
