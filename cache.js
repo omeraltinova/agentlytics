@@ -778,9 +778,10 @@ async function scanAllAsync(onProgress, opts = {}) {
   let analyzed = 0;
   let skipped = 0;
 
+  // Build existing cache map with both timestamp and bubble count
   const existing = {};
-  for (const row of db.prepare('SELECT id, last_updated_at FROM chats').all()) {
-    existing[row.id] = row.last_updated_at;
+  for (const row of db.prepare('SELECT id, last_updated_at, bubble_count FROM chats').all()) {
+    existing[row.id] = { ts: row.last_updated_at, bc: row.bubble_count };
   }
 
   // Normalize folder paths
@@ -803,10 +804,12 @@ async function scanAllAsync(onProgress, opts = {}) {
 
   for (const chat of chats) {
     scanned++;
-    const cachedTs = existing[chat.composerId];
     const chatTs = chat.lastUpdatedAt || chat.createdAt || 0;
+    const chatBc = chat.bubbleCount || 0;
 
-    if (cachedTs && cachedTs >= chatTs) {
+    // Skip if already cached, not updated, and bubble count hasn't grown
+    const cached = existing[chat.composerId];
+    if (cached && cached.ts && cached.ts >= chatTs && cached.bc >= chatBc) {
       const hasStat = db.prepare('SELECT 1 FROM chat_stats WHERE chat_id = ?').get(chat.composerId);
       if (hasStat) {
         skipped++;
