@@ -204,8 +204,18 @@ function extractAssistantContent(content) {
 // Usage / quota data from Anthropic OAuth API
 // ============================================================
 
+function isKeychainAccessAllowed() {
+  try {
+    const configPath = path.join(os.homedir(), '.agentlytics', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return config.allowKeychainAccess === true;
+  } catch { return false; }
+}
+
 function getClaudeCredentials() {
   // macOS: Keychain; Linux: secret-tool; Windows: not yet supported
+  // Requires explicit user permission (allowKeychainAccess in config)
+  if (!isKeychainAccessAllowed()) return null;
   try {
     const { execSync } = require('child_process');
     let raw;

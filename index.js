@@ -253,6 +253,39 @@ const BOT_STYLES = [
 ];
 
 (async () => {
+  // ── Ask for keychain access permission (first run only) ──
+  const CONFIG_DIR = path.join(os.homedir(), '.agentlytics');
+  const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+  let agentConfig = {};
+  try { agentConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')); } catch {}
+
+  if (agentConfig.allowKeychainAccess === undefined) {
+    // Only relevant on macOS / Linux where keychain/secret-tool is used
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      const storeName = process.platform === 'darwin' ? 'Keychain' : 'secret store';
+      console.log(chalk.yellow(`  ⚠ Some subscription details (e.g. Claude Code) require ${storeName} access.`));
+      console.log(chalk.dim(`    This reads stored credentials to show plan/usage info.`));
+      console.log('');
+      const readline = require('readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise(r => {
+        rl.question(chalk.bold(`  Allow ${storeName} access for subscription details? (y/N) `), (a) => {
+          rl.close();
+          r(a.trim().toLowerCase());
+        });
+      });
+      agentConfig.allowKeychainAccess = answer === 'y' || answer === 'yes';
+      if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(agentConfig, null, 2));
+      if (agentConfig.allowKeychainAccess) {
+        console.log(chalk.green(`  ✓ ${storeName} access enabled`));
+      } else {
+        console.log(chalk.dim(`  – ${storeName} access skipped (subscription details won't be collected)`));
+      }
+      console.log('');
+    }
+  }
+
   let tick = 0;
   const startTime = Date.now();
   const result = await cache.scanAllAsync((p) => {
