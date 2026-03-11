@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
-import { Activity, BarChart3, GitCompare, MessageSquare, FolderOpen, DollarSign, CreditCard, Sun, Moon, RefreshCw, AlertTriangle, Github, Terminal, Database, Users, Plug, Copy, Check, Settings as SettingsIcon, Package, ChevronDown } from 'lucide-react'
+import { Activity, BarChart3, GitCompare, MessageSquare, FolderOpen, DollarSign, CreditCard, Sun, Moon, RefreshCw, AlertTriangle, Github, Terminal, Database, Users, Plug, Copy, Check, Settings as SettingsIcon, Package, ChevronDown, Upload } from 'lucide-react'
 import { fetchOverview, refetchAgents, fetchMode, fetchRelayConfig, getAuthToken, setOnAuthFailure } from './lib/api'
 import { useTheme } from './lib/theme'
 import AnimatedLogo from './components/AnimatedLogo'
@@ -18,6 +18,7 @@ import Artifacts from './pages/Artifacts'
 import Settings from './pages/Settings'
 import Subscriptions from './pages/Subscriptions'
 import MCPs from './pages/MCPs'
+import CursorCSVImport from './pages/CursorCSVImport'
 import RelayDashboard from './pages/RelayDashboard'
 import RelayUserDetail from './pages/RelayUserDetail'
 
@@ -142,6 +143,7 @@ export default function App() {
     { to: '/projects', icon: FolderOpen, label: 'Projects' },
     { icon: DollarSign, label: 'Costs', children: [
       { to: '/costs', icon: DollarSign, label: 'Cost Analysis' },
+      { to: '/csv-import', icon: Upload, label: 'CSV Import' },
       { to: '/subscriptions', icon: CreditCard, label: 'Subscriptions' },
     ]},
     { icon: BarChart3, label: 'Insights', children: [
@@ -275,6 +277,7 @@ export default function App() {
             <Route path="/costs" element={<CostAnalysis overview={overview} />} />
             <Route path="/analysis" element={<DeepAnalysis overview={overview} />} />
             <Route path="/compare" element={<Compare overview={overview} />} />
+            <Route path="/csv-import" element={<CursorCSVImport />} />
             <Route path="/subscriptions" element={<Subscriptions />} />
             <Route path="/artifacts" element={<Artifacts />} />
             <Route path="/mcps" element={<MCPs />} />

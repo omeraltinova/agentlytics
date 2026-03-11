@@ -727,6 +727,56 @@ app.get('/api/all-projects', (req, res) => {
   }
 });
 
+// ============================================================
+// CSV Import — Cursor usage CSV matching
+// ============================================================
+
+const csvImport = require('./csv-import');
+
+app.post('/api/csv-import', (req, res) => {
+  try {
+    const { csv } = req.body;
+    if (!csv || typeof csv !== 'string') return res.status(400).json({ error: 'csv string required' });
+
+    const csvRows = csvImport.parseCSV(csv);
+    if (csvRows.length === 0) return res.status(400).json({ error: 'No valid rows found in CSV' });
+
+    // Get bubble timestamps from Cursor
+    const cursor = require('./editors/cursor');
+    const bubbleTimestamps = cursor.getBubbleTimestamps();
+
+    // Get composer headers (createdAt/lastUpdatedAt) for time-range matching
+    const composerHeaders = cursor.getChats().map(c => ({
+      composerId: c.composerId,
+      createdAt: c.createdAt,
+      lastUpdatedAt: c.lastUpdatedAt,
+    }));
+
+    // Get cached chats for session info enrichment
+    const cachedChats = cache.getCachedChats({ editor: 'cursor', limit: 10000, named: false });
+
+    const { matched, unmatched, sessionDetails } = csvImport.matchCSVToSessions(csvRows, bubbleTimestamps, cachedChats, composerHeaders);
+    const summary = csvImport.computeSummary(matched, unmatched, sessionDetails);
+
+    const sessionId = csvImport.createSession({ summary, sessionDetails, unmatched });
+
+    res.json({ sessionId, summary, sessionDetails, unmatched });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/csv-import/:sessionId', (req, res) => {
+  const data = csvImport.getSession(req.params.sessionId);
+  if (!data) return res.status(404).json({ error: 'Session not found or expired' });
+  res.json(data);
+});
+
+app.delete('/api/csv-import/:sessionId', (req, res) => {
+  csvImport.deleteSession(req.params.sessionId);
+  res.json({ ok: true });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

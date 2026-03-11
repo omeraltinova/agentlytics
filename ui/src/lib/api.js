@@ -214,6 +214,27 @@ export async function fetchUsage() {
   return res.json();
 }
 
+// ── CSV Import API ──
+
+export async function uploadCursorCSV(csvText) {
+  const res = await fetch(`${BASE}/api/csv-import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csv: csvText }),
+  });
+  return res.json();
+}
+
+export async function fetchCSVImportSession(sessionId) {
+  const res = await fetch(`${BASE}/api/csv-import/${sessionId}`);
+  return res.json();
+}
+
+export async function deleteCSVImportSession(sessionId) {
+  const res = await fetch(`${BASE}/api/csv-import/${sessionId}`, { method: 'DELETE' });
+  return res.json();
+}
+
 // ── Artifacts API ──
 
 export async function fetchArtifacts() {

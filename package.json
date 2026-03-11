@@ -14,6 +14,7 @@
     "relay-server.js",
     "relay-client.js",
     "mcp-server.js",
+    "csv-import.js",
     "pricing.js",
     "pricing.json",
     "editors/",

@@ -245,6 +245,41 @@ function bubblesToMessages(bubbles) {
 }
 
 // ============================================================
+// Bubble timestamps for CSV import matching
+// ============================================================
+
+function getBubbleTimestamps() {
+  const results = [];
+  let globalDb;
+  try { globalDb = new Database(GLOBAL_STORAGE_DB, { readonly: true }); } catch { return results; }
+
+  try {
+    const rows = globalDb.prepare(
+      "SELECT key, value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' ORDER BY key"
+    ).all();
+
+    for (const row of rows) {
+      try {
+        const obj = JSON.parse(row.value);
+        // Parse composerId from key: bubbleId:<composerId>:<uuid>
+        const parts = row.key.split(':');
+        if (parts.length < 3) continue;
+        const composerId = parts[1];
+
+        const timestamp = obj.timingInfo?.clientRpcSendTime || null;
+        const type = obj.type || null; // 1=user, 2=assistant
+        const modelId = obj.modelId || obj.model || null;
+
+        results.push({ composerId, timestamp, type, modelId, key: row.key });
+      } catch { /* skip unparseable */ }
+    }
+  } catch { /* skip */ }
+
+  globalDb.close();
+  return results;
+}
+
+// ============================================================
 // Adapter interface
 // ============================================================
 
@@ -433,4 +468,4 @@ function getMCPServers() {
   ];
 }
 
-module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers };
+module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers, getBubbleTimestamps };
