@@ -166,7 +166,7 @@ function getModelPreference(globalDb) {
 function getComposerBubbles(globalDb, composerId) {
   const prefix = `bubbleId:${composerId}:`;
   const rows = globalDb.prepare(
-    "SELECT key, value FROM cursorDiskKV WHERE key LIKE ? ORDER BY key"
+    "SELECT key, value FROM cursorDiskKV WHERE key LIKE ? ORDER BY rowid"
   ).all(prefix + '%');
 
   const bubbles = [];
@@ -255,7 +255,7 @@ function getBubbleTimestamps() {
 
   try {
     const rows = globalDb.prepare(
-      "SELECT key, value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' ORDER BY key"
+      "SELECT key, value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' ORDER BY rowid"
     ).all();
 
     for (const row of rows) {

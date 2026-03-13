@@ -204,14 +204,13 @@ function matchCSVToSessions(csvRows, bubbleTimestamps, cachedChats, composerHead
   for (const row of phase1Unmatched) {
     const target = row.timestamp;
 
-    // Find all composers whose [start, end] range covers this timestamp
-    // Use a generous buffer: CSV timestamp may be slightly before session start
-    // or after last update (request in progress when session was last read)
-    const RANGE_BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer
+    // CSV timestamp >= user message time, so it can never be before session start.
+    // End buffer (5min) because lastUpdatedAt may lag behind active requests.
+    const END_BUFFER_MS = 5 * 60 * 1000;
     const candidates = [];
 
     for (const comp of composers) {
-      if (target >= comp.start - RANGE_BUFFER_MS && target <= comp.end + RANGE_BUFFER_MS) {
+      if (target >= comp.start && target <= comp.end + END_BUFFER_MS) {
         candidates.push(comp);
       }
     }

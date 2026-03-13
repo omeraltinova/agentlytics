@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Upload, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
-import { uploadCursorCSV } from '../lib/api'
+import { uploadCursorCSV, fetchChat } from '../lib/api'
 import { formatNumber, formatCost, formatDate } from '../lib/constants'
 import { useTheme } from '../lib/theme'
 import KpiCard from '../components/KpiCard'
@@ -83,6 +83,34 @@ export default function CursorCSVImport() {
     setError(null)
   }
 
+  // Memoized fetchFn for ChatSidebar — overrides assistant models with CSV data
+  const csvFetchFn = useCallback(async (id) => {
+    const chat = await fetchChat(id)
+    const csvSession = data?.sessionDetails?.find(s => s.composerId === id)
+    if (csvSession && chat?.messages) {
+      const csvRows = (csvSession.csvRows || []).sort((a, b) => a.timestamp - b.timestamp)
+      // Each user message is a group boundary — assistants between two user messages
+      // share the same CSV row. Initial assistants (before first user msg) use csvRows[0].
+      let csvIdx = -1
+      let currentModel = csvRows[0]?.model || null
+      for (const msg of chat.messages) {
+        if (msg.role === 'user') {
+          csvIdx++
+          if (csvIdx < csvRows.length) {
+            currentModel = csvRows[csvIdx].model
+          }
+        } else if (msg.role === 'assistant') {
+          if (csvIdx < 0) csvIdx = 0
+          msg.model = currentModel
+        }
+      }
+      if (chat.stats) {
+        chat.stats.models = csvSession.models || []
+      }
+    }
+    return chat
+  }, [data])
+
   // ── Upload Stage ──
   if (stage === 'upload') {
     return (
@@ -122,7 +150,7 @@ export default function CursorCSVImport() {
         <div className="card p-3">
           <SectionTitle>how to get your CSV</SectionTitle>
           <ol className="text-[12px] space-y-1.5 list-decimal list-inside" style={{ color: 'var(--c-text2)' }}>
-            <li>Go to <span className="font-mono" style={{ color: 'var(--c-white)' }}>cursor.com/settings</span></li>
+            <li>Go to <span className="font-mono" style={{ color: 'var(--c-white)' }}>https://cursor.com/dashboard</span></li>
             <li>Navigate to <span className="font-medium" style={{ color: 'var(--c-white)' }}>Usage</span> section</li>
             <li>Click <span className="font-medium" style={{ color: 'var(--c-white)' }}>Export CSV</span></li>
             <li>Upload the downloaded file here</li>
@@ -145,7 +173,7 @@ export default function CursorCSVImport() {
 
   // ── Results Stage ──
   const { summary, sessionDetails, unmatched } = data
-  const { modelBreakdown, dailyTrend, unknownModels } = summary
+  const { modelBreakdown, unknownModels } = summary
 
   // Charts — cost by model (estimated)
   const costBarData = modelBreakdown.filter(m => m.estimatedCost > 0).length > 0 ? {
@@ -458,8 +486,12 @@ export default function CursorCSVImport() {
         </div>
       )}
 
-      {/* Chat sidebar */}
-      <ChatSidebar chatId={selectedChatId} onClose={() => setSelectedChatId(null)} />
+      {/* Chat sidebar — override models with CSV data */}
+      <ChatSidebar
+        chatId={selectedChatId}
+        onClose={() => setSelectedChatId(null)}
+        fetchFn={csvFetchFn}
+      />
     </div>
   )
 }
