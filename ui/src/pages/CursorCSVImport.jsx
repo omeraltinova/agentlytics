@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Upload, ChevronDown, ChevronRight, AlertTriangle, Download, ExternalLink } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
 import { uploadCursorCSV, fetchChat } from '../lib/api'
@@ -40,6 +40,18 @@ export default function CursorCSVImport() {
   const [selectedChatId, setSelectedChatId] = useState(null)
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
   const fileRef = useRef(null)
+
+  const getDefaultDates = useCallback(() => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - 7)
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    }
+  }, [])
+
+  const [dateRange, setDateRange] = useState(getDefaultDates)
 
   const handleFile = useCallback(async (file) => {
     if (!file || !file.name.endsWith('.csv')) {
@@ -83,6 +95,17 @@ export default function CursorCSVImport() {
     setError(null)
   }
 
+  const downloadCSV = useCallback(() => {
+    const startMs = new Date(dateRange.start).getTime()
+    const endMs = new Date(dateRange.end + 'T23:59:59').getTime()
+    const url = `https://cursor.com/api/dashboard/export-usage-events-csv?startDate=${startMs}&endDate=${endMs}&strategy=tokens`
+    window.open(url, '_blank')
+  }, [dateRange])
+
+  const openDashboard = useCallback(() => {
+    window.open('https://cursor.com/dashboard/', '_blank')
+  }, [])
+
   // Memoized fetchFn for ChatSidebar — overrides assistant models with CSV data
   const csvFetchFn = useCallback(async (id) => {
     const chat = await fetchChat(id)
@@ -119,42 +142,99 @@ export default function CursorCSVImport() {
           <ExperimentalTag />
         </PageHeader>
 
-        <div
-          className="card p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition"
-          style={{
-            border: dragOver ? '2px dashed #6366f1' : '2px dashed var(--c-border)',
-            background: dragOver ? 'rgba(99,102,241,0.05)' : 'transparent',
-            minHeight: 220,
-          }}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload size={28} style={{ color: 'var(--c-text3)' }} />
-          <div className="text-[13px] font-medium" style={{ color: 'var(--c-white)' }}>
-            Drop your Cursor usage CSV here
+        {/* Step 1: Download CSV */}
+        <div className="card p-4">
+          <SectionTitle>Step 1: Download CSV from Cursor</SectionTitle>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px]" style={{ color: 'var(--c-text2)' }}>Start:</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="px-2 py-1 text-[12px] rounded border font-mono"
+                style={{
+                  background: 'var(--c-bg3)',
+                  borderColor: 'var(--c-border)',
+                  color: 'var(--c-white)',
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px]" style={{ color: 'var(--c-text2)' }}>End:</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="px-2 py-1 text-[12px] rounded border font-mono"
+                style={{
+                  background: 'var(--c-bg3)',
+                  borderColor: 'var(--c-border)',
+                  color: 'var(--c-white)',
+                }}
+              />
+            </div>
+            <button
+              onClick={downloadCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded transition"
+              style={{
+                background: 'rgba(99,102,241,0.1)',
+                border: '1px solid rgba(99,102,241,0.3)',
+                color: '#818cf8',
+              }}
+            >
+              <Download size={14} />
+              Download CSV
+            </button>
+            <span className="text-[11px]" style={{ color: 'var(--c-text3)' }}>or</span>
+            <button
+              onClick={openDashboard}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded transition hover:bg-[var(--c-card)]"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--c-border)',
+                color: 'var(--c-text2)',
+              }}
+            >
+              <ExternalLink size={14} />
+              Open Dashboard
+            </button>
           </div>
-          <div className="text-[11px]" style={{ color: 'var(--c-text3)' }}>
-            or click to browse
+          <div className="mt-2 text-[10px]" style={{ color: 'var(--c-text3)' }}>
+            Requires an active cursor.com session in your browser.
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={onFileChange}
-          />
         </div>
 
-        <div className="card p-3">
-          <SectionTitle>how to get your CSV</SectionTitle>
-          <ol className="text-[12px] space-y-1.5 list-decimal list-inside" style={{ color: 'var(--c-text2)' }}>
-            <li>Go to <span className="font-mono" style={{ color: 'var(--c-white)' }}>https://cursor.com/dashboard</span></li>
-            <li>Navigate to <span className="font-medium" style={{ color: 'var(--c-white)' }}>Usage</span> section</li>
-            <li>Click <span className="font-medium" style={{ color: 'var(--c-white)' }}>Export CSV</span></li>
-            <li>Upload the downloaded file here</li>
-          </ol>
+        {/* Step 2: Upload CSV */}
+        <div className="card p-4">
+          <SectionTitle>Step 2: Upload CSV File</SectionTitle>
+          <div
+            className="mt-3 p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition"
+            style={{
+              border: dragOver ? '2px dashed #6366f1' : '2px dashed var(--c-border)',
+              background: dragOver ? 'rgba(99,102,241,0.05)' : 'transparent',
+              minHeight: 180,
+            }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload size={28} style={{ color: 'var(--c-text3)' }} />
+            <div className="text-[13px] font-medium" style={{ color: 'var(--c-white)' }}>
+              Drop your Cursor usage CSV here
+            </div>
+            <div className="text-[11px]" style={{ color: 'var(--c-text3)' }}>
+              or click to browse
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={onFileChange}
+            />
+          </div>
         </div>
 
         {error && (

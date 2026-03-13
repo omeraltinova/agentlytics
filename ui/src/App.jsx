@@ -143,7 +143,7 @@ export default function App() {
     { to: '/projects', icon: FolderOpen, label: 'Projects' },
     { icon: DollarSign, label: 'Costs', children: [
       { to: '/costs', icon: DollarSign, label: 'Cost Analysis' },
-      { to: '/csv-import', icon: Upload, label: 'CSV Import' },
+      { to: '/csv-import', icon: Upload, label: 'Cursor Import' },
       { to: '/subscriptions', icon: CreditCard, label: 'Subscriptions' },
     ]},
     { icon: BarChart3, label: 'Insights', children: [
