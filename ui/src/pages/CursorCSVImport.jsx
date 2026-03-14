@@ -39,6 +39,7 @@ export default function CursorCSVImport() {
   const [dragOver, setDragOver] = useState(false)
   const [selectedChatId, setSelectedChatId] = useState(null)
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
+  const [downloadInitiated, setDownloadInitiated] = useState(false)
   const fileRef = useRef(null)
 
   const getDefaultDates = useCallback(() => {
@@ -100,6 +101,7 @@ export default function CursorCSVImport() {
     const endMs = new Date(dateRange.end + 'T23:59:59').getTime()
     const url = `https://cursor.com/api/dashboard/export-usage-events-csv?startDate=${startMs}&endDate=${endMs}&strategy=tokens`
     window.open(url, '_blank')
+    setDownloadInitiated(true)
   }, [dateRange])
 
   const openDashboard = useCallback(() => {
@@ -206,13 +208,18 @@ export default function CursorCSVImport() {
         </div>
 
         {/* Step 2: Upload CSV */}
-        <div className="card p-4">
+        <div className="card p-4" style={downloadInitiated ? { borderColor: '#22c55e', borderWidth: '1px' } : {}}>
           <SectionTitle>Step 2: Upload CSV File</SectionTitle>
+          {downloadInitiated && (
+            <div className="text-[11px] -mt-1 mb-2" style={{ color: '#22c55e' }}>
+              CSV downloaded! Drop the file below.
+            </div>
+          )}
           <div
             className="mt-3 p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition"
             style={{
-              border: dragOver ? '2px dashed #6366f1' : '2px dashed var(--c-border)',
-              background: dragOver ? 'rgba(99,102,241,0.05)' : 'transparent',
+              border: dragOver ? '2px dashed #6366f1' : downloadInitiated ? '2px dashed #22c55e' : '2px dashed var(--c-border)',
+              background: dragOver ? 'rgba(99,102,241,0.05)' : downloadInitiated ? 'rgba(34,197,94,0.05)' : 'transparent',
               minHeight: 180,
             }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -220,9 +227,9 @@ export default function CursorCSVImport() {
             onDrop={onDrop}
             onClick={() => fileRef.current?.click()}
           >
-            <Upload size={28} style={{ color: 'var(--c-text3)' }} />
+            <Upload size={28} style={{ color: downloadInitiated ? '#22c55e' : 'var(--c-text3)' }} />
             <div className="text-[13px] font-medium" style={{ color: 'var(--c-white)' }}>
-              Drop your Cursor usage CSV here
+              {downloadInitiated ? 'Drop your downloaded CSV here' : 'Drop your Cursor usage CSV here'}
             </div>
             <div className="text-[11px]" style={{ color: 'var(--c-text3)' }}>
               or click to browse
