@@ -102,8 +102,8 @@ function getAllArtifacts(folder) {
       artifacts.push(...scanArtifacts(folder, {
         editor: '_general',
         label: 'General',
-        files: ['AGENTS.md', '.mcp.json', 'plan.md', 'progress.md', 'TODO.md', 'CONVENTIONS.md', 'ARCHITECTURE.md', 'PLANNING.md'],
-        dirs: [],
+        files: ['AGENTS.md', 'AGENTS.override.md', '.mcp.json', 'plan.md', 'progress.md', 'TODO.md', 'CONVENTIONS.md', 'ARCHITECTURE.md', 'PLANNING.md'],
+        dirs: ['.agents/skills'],
       }));
     } catch { /* skip */ }
   }
@@ -115,6 +115,43 @@ function getAllArtifacts(folder) {
     if (!existing || (existing.editor === '_general' && a.editor !== '_general')) {
       seen.set(a.path, a);
     }
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Get all global artifacts from all editors.
+ * These are user-level artifacts not tied to any specific project.
+ */
+function getAllGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const os = require('os');
+  const artifacts = [];
+
+  for (const editor of editors) {
+    if (typeof editor.getGlobalArtifacts !== 'function') continue;
+    try {
+      artifacts.push(...editor.getGlobalArtifacts());
+    } catch { /* skip broken adapters */ }
+  }
+
+  // Editor-agnostic shared skills: ~/.agents/skills/
+  try {
+    const agentsBase = path.join(os.homedir(), '.agents');
+    const shared = scanArtifacts(agentsBase, {
+      editor: '_general',
+      label: 'Shared',
+      files: [],
+      dirs: ['skills'],
+    });
+    for (const a of shared) a.scope = 'global';
+    artifacts.push(...shared);
+  } catch { /* skip */ }
+
+  // Deduplicate by path
+  const seen = new Map();
+  for (const a of artifacts) {
+    if (!seen.has(a.path)) seen.set(a.path, a);
   }
   return Array.from(seen.values());
 }
@@ -170,4 +207,4 @@ function getAllMCPServers(projectFolders = []) {
   return Array.from(seen.values());
 }
 
-module.exports = { getAllChats, getMessages, editors, editorLabels, resetCaches, getAllUsage, getAllArtifacts, getAllMCPServers };
+module.exports = { getAllChats, getMessages, editors, editorLabels, resetCaches, getAllUsage, getAllArtifacts, getAllGlobalArtifacts, getAllMCPServers };

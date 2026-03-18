@@ -252,9 +252,22 @@ function getArtifacts(folder) {
   });
 }
 
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const base = path.join(os.homedir(), '.copilot');
+  const artifacts = scanArtifacts(base, {
+    editor: 'copilot-cli',
+    label: 'Copilot',
+    files: ['instructions.md'],
+    dirs: [],
+  });
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
+}
+
 function getMCPServers() {
   // Copilot CLI shares MCP config with VS Code (handled by vscode.js)
   return [];
 }
 
-module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers };
+module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };

@@ -65,6 +65,7 @@ function scanArtifacts(folder, { editor, label, files = [], dirs = [] }) {
       const stat = fs.statSync(filePath);
       if (!stat.isFile()) continue;
       const content = fs.readFileSync(filePath, 'utf-8');
+      if (!content.trim()) continue;
       artifacts.push({
         editor,
         editorLabel: label,
@@ -80,13 +81,14 @@ function scanArtifacts(folder, { editor, label, files = [], dirs = [] }) {
   }
 
   const isArtifactFile = (f) =>
-    f.endsWith('.md') || f.endsWith('.mdc') || f.endsWith('.yaml') || f.endsWith('.yml') || f.endsWith('.json');
+    f.endsWith('.md') || f.endsWith('.mdc') || f.endsWith('.yaml') || f.endsWith('.yml') || f.endsWith('.json') || f.endsWith('.toml') || f.endsWith('.rules');
 
   const addFile = (filePath, relPath, fileName) => {
     try {
       const fstat = fs.statSync(filePath);
       if (!fstat.isFile()) return;
       const content = fs.readFileSync(filePath, 'utf-8');
+      if (!content.trim()) return;
       artifacts.push({
         editor,
         editorLabel: label,

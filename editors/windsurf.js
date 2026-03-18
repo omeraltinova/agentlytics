@@ -591,6 +591,25 @@ function getArtifacts(folder) {
   });
 }
 
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const artifacts = [];
+  const variants = [
+    { base: path.join(os.homedir(), '.codeium', 'windsurf'), editor: 'windsurf', label: 'Windsurf' },
+    { base: path.join(os.homedir(), '.codeium', 'windsurf-next'), editor: 'windsurf-next', label: 'Windsurf Next' },
+  ];
+  for (const v of variants) {
+    artifacts.push(...scanArtifacts(v.base, {
+      editor: v.editor,
+      label: v.label,
+      files: [],
+      dirs: ['skills'],
+    }));
+  }
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
+}
+
 function getMCPServers() {
   const { parseMcpConfigFile } = require('./base');
   const results = [];
@@ -604,4 +623,4 @@ function getMCPServers() {
   return results;
 }
 
-module.exports = { name, sources, labels, getChats, getMessages, resetCache, getUsage, getArtifacts, getMCPServers };
+module.exports = { name, sources, labels, getChats, getMessages, resetCache, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };

@@ -516,9 +516,75 @@ function getArtifacts(folder) {
   return scanArtifacts(folder, {
     editor: 'codex',
     label: 'Codex',
-    files: ['AGENTS.md', 'codex.md'],
-    dirs: [],
+    files: ['AGENTS.md', 'AGENTS.override.md', 'codex.md', '.codex/config.toml'],
+    dirs: ['.agents/skills'],
   });
+}
+
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const base = path.join(os.homedir(), '.codex');
+  const artifacts = scanArtifacts(base, {
+    editor: 'codex',
+    label: 'Codex',
+    files: ['config.toml', 'AGENTS.md', 'AGENTS.override.md', 'instructions.md'],
+    dirs: ['rules'],
+  });
+
+  // Deep scan skill directories for SKILL.md files
+  const scanSkillDir = (skillsRoot, prefix) => {
+    if (!fs.existsSync(skillsRoot) || !fs.statSync(skillsRoot).isDirectory()) return;
+    const scan = (dir) => {
+      try {
+        for (const entry of fs.readdirSync(dir)) {
+          const full = path.join(dir, entry);
+          try {
+            const st = fs.statSync(full);
+            if (st.isDirectory()) {
+              const skillFile = path.join(full, 'SKILL.md');
+              if (fs.existsSync(skillFile)) {
+                try {
+                  const stat = fs.statSync(skillFile);
+                  const content = fs.readFileSync(skillFile, 'utf-8');
+                  if (!content.trim()) continue;
+                  artifacts.push({
+                    editor: 'codex',
+                    editorLabel: 'Codex',
+                    name: `${entry}/SKILL.md`,
+                    path: skillFile,
+                    relativePath: `${prefix}/${entry}/SKILL.md`,
+                    size: stat.size,
+                    modifiedAt: stat.mtime.getTime(),
+                    preview: content.substring(0, 500),
+                    lines: content.split('\n').length,
+                  });
+                } catch { /* skip */ }
+              } else {
+                // Recurse one more level for nested structures
+                scan(full);
+              }
+            }
+          } catch { /* skip */ }
+        }
+      } catch { /* skip */ }
+    };
+    scan(skillsRoot);
+  };
+
+  // ~/.codex/skills/ (user-installed skills only)
+  scanSkillDir(path.join(base, 'skills'), 'skills');
+  // ~/.agents/skills/ (shared cross-editor skills)
+  scanSkillDir(path.join(os.homedir(), '.agents', 'skills'), 'agents/skills');
+
+  // Deduplicate by skill name (user > curated > system)
+  const seen = new Map();
+  const deduped = [];
+  for (const a of artifacts) {
+    const key = a.name || a.path;
+    if (!seen.has(key)) { seen.set(key, true); deduped.push(a); }
+  }
+  for (const a of deduped) a.scope = 'global';
+  return deduped;
 }
 
 function getMCPServers() {
@@ -530,6 +596,7 @@ module.exports = {
   name,
   labels,
   getArtifacts,
+  getGlobalArtifacts,
   getChats,
   getMessages,
   getUsage,

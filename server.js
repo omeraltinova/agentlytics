@@ -371,7 +371,7 @@ app.get('/api/check-ai', async (req, res) => {
 
 app.get('/api/artifacts', (req, res) => {
   try {
-    const { getAllArtifacts } = require('./editors');
+    const { getAllArtifacts, getAllGlobalArtifacts } = require('./editors');
     const projects = cache.getCachedProjects({ hiddenFolders: getHiddenFolders() });
     const result = [];
 
@@ -399,6 +399,30 @@ app.get('/api/artifacts', (req, res) => {
 
     // Sort by total artifacts descending
     result.sort((a, b) => b.totalArtifacts - a.totalArtifacts);
+
+    // Collect global artifacts
+    let globalEntry = null;
+    try {
+      const globalArtifacts = getAllGlobalArtifacts();
+      if (globalArtifacts.length > 0) {
+        const byEditor = {};
+        for (const a of globalArtifacts) {
+          if (!byEditor[a.editor]) byEditor[a.editor] = { editor: a.editor, label: a.editorLabel, files: [] };
+          byEditor[a.editor].files.push(a);
+        }
+        globalEntry = {
+          folder: '~global~',
+          name: 'Global',
+          isGlobal: true,
+          totalArtifacts: globalArtifacts.length,
+          editors: Object.values(byEditor),
+        };
+      }
+    } catch { /* skip */ }
+
+    // Prepend global entry if present
+    if (globalEntry) result.unshift(globalEntry);
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -410,14 +434,21 @@ app.get('/api/artifact-content', (req, res) => {
     const filePath = req.query.path;
     if (!filePath) return res.status(400).json({ error: 'path query param required' });
 
-    // Security: validate file exists in known artifact results for at least one project
-    const { getAllArtifacts } = require('./editors');
+    // Security: validate file exists in known artifact results for at least one project or global
+    const { getAllArtifacts, getAllGlobalArtifacts } = require('./editors');
     const projects = cache.getCachedProjects({ hiddenFolders: getHiddenFolders() });
     let allowed = false;
     for (const project of projects) {
       if (!project.folder) continue;
       const artifacts = getAllArtifacts(project.folder);
       if (artifacts.some(a => a.path === filePath)) { allowed = true; break; }
+    }
+    // Also check global artifacts
+    if (!allowed) {
+      try {
+        const globalArtifacts = getAllGlobalArtifacts();
+        if (globalArtifacts.some(a => a.path === filePath)) allowed = true;
+      } catch { /* skip */ }
     }
     if (!allowed) return res.status(403).json({ error: 'Not an artifact file' });
 

@@ -394,7 +394,7 @@ function getArtifacts(folder) {
     editor: 'vscode',
     label: 'VS Code',
     files: ['.github/copilot-instructions.md'],
-    dirs: ['.vscode'],
+    dirs: ['.vscode', '.copilot/skills'],
   });
 }
 
@@ -410,4 +410,31 @@ function getMCPServers() {
   return results;
 }
 
-module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers };
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const artifacts = [];
+  for (const variant of VARIANTS) {
+    if (!fs.existsSync(variant.appSupport)) continue;
+    const userDir = path.join(variant.appSupport, 'User');
+    artifacts.push(...scanArtifacts(userDir, {
+      editor: variant.id,
+      label: variant.id === 'vscode' ? 'VS Code' : 'VS Code Insiders',
+      files: [],
+      dirs: ['globalStorage/github.copilot-chat/rules'],
+    }));
+  }
+  // ~/.copilot/skills/ (user-level Copilot skills)
+  const copilotBase = path.join(os.homedir(), '.copilot');
+  if (fs.existsSync(copilotBase)) {
+    artifacts.push(...scanArtifacts(copilotBase, {
+      editor: 'vscode',
+      label: 'VS Code',
+      files: [],
+      dirs: ['skills'],
+    }));
+  }
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
+}
+
+module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };

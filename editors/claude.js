@@ -310,8 +310,87 @@ function getArtifacts(folder) {
     editor: 'claude-code',
     label: 'Claude Code',
     files: ['CLAUDE.md', '.claude/settings.json', '.claude/settings.local.json', '.mcp.json'],
-    dirs: ['.claude/commands'],
+    dirs: ['.claude/commands', '.claude/skills'],
   });
+}
+
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const base = path.join(os.homedir(), '.claude');
+  const artifacts = scanArtifacts(base, {
+    editor: 'claude-code',
+    label: 'Claude Code',
+    files: ['settings.json'],
+    dirs: ['commands', 'skills'],
+  });
+  // Also check ~/.claude.md and ~/.claude.json
+  artifacts.push(...scanArtifacts(os.homedir(), {
+    editor: 'claude-code',
+    label: 'Claude Code',
+    files: ['.claude.md', '.claude.json'],
+    dirs: [],
+  }));
+
+  // Deep scan plugin skills: ~/.claude/plugins/cache/<pub>/<plugin>/<ver>/.claude/skills/<skill>/SKILL.md
+  try {
+    const cacheDir = path.join(base, 'plugins', 'cache');
+    if (fs.existsSync(cacheDir)) {
+      const seen = new Set();
+      for (const pub of fs.readdirSync(cacheDir)) {
+        const pubDir = path.join(cacheDir, pub);
+        if (!fs.statSync(pubDir).isDirectory()) continue;
+        for (const plugin of fs.readdirSync(pubDir)) {
+          const pluginDir = path.join(pubDir, plugin);
+          if (!fs.statSync(pluginDir).isDirectory()) continue;
+          for (const ver of fs.readdirSync(pluginDir)) {
+            const verDir = path.join(pluginDir, ver);
+            if (!fs.statSync(verDir).isDirectory()) continue;
+            // Skip orphaned versions
+            if (fs.existsSync(path.join(verDir, '.orphaned_at'))) continue;
+            // Look for skills in .claude/skills/ and source/skills/
+            const skillRoots = [
+              path.join(verDir, '.claude', 'skills'),
+              path.join(verDir, 'source', 'skills'),
+              path.join(verDir, 'skills'),
+            ];
+            for (const skillRoot of skillRoots) {
+              if (!fs.existsSync(skillRoot) || !fs.statSync(skillRoot).isDirectory()) continue;
+              for (const skillName of fs.readdirSync(skillRoot)) {
+                const skillDir = path.join(skillRoot, skillName);
+                if (!fs.statSync(skillDir).isDirectory()) continue;
+                const skillFile = path.join(skillDir, 'SKILL.md');
+                if (!fs.existsSync(skillFile)) continue;
+                // Deduplicate by skill name per plugin (prefer .claude/skills/ over source/skills/)
+                const dedupeKey = `${pub}/${plugin}/${skillName}`;
+                if (seen.has(dedupeKey)) continue;
+                seen.add(dedupeKey);
+                try {
+                  const stat = fs.statSync(skillFile);
+                  const content = fs.readFileSync(skillFile, 'utf-8');
+                  if (!content.trim()) continue;
+                  artifacts.push({
+                    editor: 'claude-code',
+                    editorLabel: 'Claude Code',
+                    name: `${skillName}/SKILL.md`,
+                    path: skillFile,
+                    relativePath: `plugins/${plugin}/skills/${skillName}/SKILL.md`,
+                    size: stat.size,
+                    modifiedAt: stat.mtime.getTime(),
+                    preview: content.substring(0, 500),
+                    lines: content.split('\n').length,
+                  });
+                } catch { /* skip */ }
+              }
+              break; // Use first found skill root per version
+            }
+          }
+        }
+      }
+    }
+  } catch { /* skip plugin scan errors */ }
+
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
 }
 
 function getMCPServers() {
@@ -324,4 +403,4 @@ function getMCPServers() {
   return results;
 }
 
-module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers };
+module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };

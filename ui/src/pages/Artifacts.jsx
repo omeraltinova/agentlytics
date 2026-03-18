@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FolderOpen, FileText, ChevronRight, ChevronDown, Search, Package, Clock, Hash, X, Code, Eye, DollarSign, Type } from 'lucide-react'
+import { FolderOpen, FileText, ChevronRight, ChevronDown, Search, Package, Clock, Hash, X, Code, Eye, DollarSign, Type, Globe } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { fetchArtifacts, fetchArtifactContent } from '../lib/api'
@@ -336,12 +336,21 @@ export default function Artifacts() {
   useEffect(() => {
     fetchArtifacts().then(d => {
       setData(d)
-      // Auto-expand first project
+      // Auto-expand global entry (if present) and first project
       if (d && d.length > 0) {
-        setExpandedProjects(new Set([d[0].folder]))
-        if (d[0].editors.length > 0) {
-          setExpandedEditors(new Set([d[0].folder + '::' + d[0].editors[0].editor]))
+        const expandFolders = new Set()
+        const expandEditors = new Set()
+        for (const p of d) {
+          if (p.isGlobal || expandFolders.size === 0) {
+            expandFolders.add(p.folder)
+            if (p.editors.length > 0) {
+              expandEditors.add(p.folder + '::' + p.editors[0].editor)
+            }
+          }
+          if (!p.isGlobal && expandFolders.size >= 2) break
         }
+        setExpandedProjects(expandFolders)
+        setExpandedEditors(expandEditors)
       }
     })
   }, [])
@@ -438,12 +447,13 @@ export default function Artifacts() {
                     style={{ borderBottom: '1px solid var(--c-border)' }}
                   >
                     {isExpanded ? <ChevronDown size={12} style={{ color: 'var(--c-text3)' }} /> : <ChevronRight size={12} style={{ color: 'var(--c-text3)' }} />}
-                    <FolderOpen size={13} style={{ color: '#6366f1' }} />
+                    {project.isGlobal ? <Globe size={13} style={{ color: '#22c55e' }} /> : <FolderOpen size={13} style={{ color: '#6366f1' }} />}
                     <div className="min-w-0 flex-1">
                       <div className="text-[12px] font-medium truncate" style={{ color: 'var(--c-white)' }}>{project.name}</div>
-                      <div className="text-[10px] truncate" style={{ color: 'var(--c-text3)', fontFamily: MONO }}>{project.folder}</div>
+                      {!project.isGlobal && <div className="text-[10px] truncate" style={{ color: 'var(--c-text3)', fontFamily: MONO }}>{project.folder}</div>}
+                      {project.isGlobal && <div className="text-[10px] truncate" style={{ color: 'var(--c-text3)' }}>User-level rules, skills & commands</div>}
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: project.isGlobal ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)', color: project.isGlobal ? '#22c55e' : '#818cf8' }}>
                       {project.totalArtifacts}
                     </span>
                   </button>
@@ -465,7 +475,7 @@ export default function Artifacts() {
                             <FileText size={12} style={{ color: 'var(--c-text2)' }} />
                           )}
                           <span className="text-[11px] font-medium" style={{ color: editorGroup.editor !== '_general' ? editorColor(editorGroup.editor) : 'var(--c-text2)' }}>
-                            {editorGroup.editor !== '_general' ? editorLabel(editorGroup.editor) : editorGroup.label}
+                            {editorGroup.editor === 'vscode' ? 'VS Code + Copilot CLI' : editorGroup.editor !== '_general' ? editorLabel(editorGroup.editor) : editorGroup.label}
                           </span>
                           <span className="text-[10px] ml-auto" style={{ color: 'var(--c-text3)' }}>
                             {editorGroup.files.length}

@@ -178,9 +178,33 @@ function getArtifacts(folder) {
   return scanArtifacts(folder, {
     editor: 'gemini-cli',
     label: 'Gemini CLI',
-    files: ['GEMINI.md'],
-    dirs: [],
+    files: ['GEMINI.md', '.gemini/GEMINI.md', '.gemini/settings.json'],
+    dirs: ['.gemini/extensions'],
   });
+}
+
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const artifacts = [];
+  // ~/.gemini/
+  const base = path.join(os.homedir(), '.gemini');
+  artifacts.push(...scanArtifacts(base, {
+    editor: 'gemini-cli',
+    label: 'Gemini CLI',
+    files: ['GEMINI.md', 'settings.json'],
+    dirs: ['extensions'],
+  }));
+  // macOS system-level: /Library/Application Support/GeminiCli/
+  if (process.platform === 'darwin') {
+    artifacts.push(...scanArtifacts('/Library/Application Support/GeminiCli', {
+      editor: 'gemini-cli',
+      label: 'Gemini CLI',
+      files: ['settings.json', 'system-defaults.json'],
+      dirs: [],
+    }));
+  }
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
 }
 
 function getMCPServers() {
@@ -192,4 +216,4 @@ function getMCPServers() {
   ];
 }
 
-module.exports = { name, labels, getChats, getMessages, getArtifacts, getMCPServers };
+module.exports = { name, labels, getChats, getMessages, getArtifacts, getGlobalArtifacts, getMCPServers };

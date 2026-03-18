@@ -422,9 +422,22 @@ function getArtifacts(folder) {
   return scanArtifacts(folder, {
     editor: 'cursor',
     label: 'Cursor',
-    files: ['.cursorrules', 'AGENTS.md'],
-    dirs: ['.cursor/rules', '.cursor/plans'],
+    files: ['.cursorrules', 'AGENTS.md', '.cursor/hooks.json'],
+    dirs: ['.cursor/rules', '.cursor/plans', '.cursor/skills', '.cursor/commands', '.cursor/agents', '.agents/skills'],
   });
+}
+
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const base = path.join(HOME, '.cursor');
+  const artifacts = scanArtifacts(base, {
+    editor: 'cursor',
+    label: 'Cursor',
+    files: [],
+    dirs: ['skills'],
+  });
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
 }
 
 function getMCPServers() {
@@ -435,4 +448,4 @@ function getMCPServers() {
   ];
 }
 
-module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getMCPServers };
+module.exports = { name, labels, getChats, getMessages, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };

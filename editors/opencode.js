@@ -371,4 +371,27 @@ function getMCPServers() {
   return results;
 }
 
-module.exports = { name, labels, getChats, getMessages, getMCPServers };
+function getArtifacts(folder) {
+  const { scanArtifacts } = require('./base');
+  return scanArtifacts(folder, {
+    editor: 'opencode',
+    label: 'OpenCode',
+    files: ['AGENTS.md', 'opencode.md', '.opencode/config.json'],
+    dirs: ['.opencode/rules', '.opencode/skills'],
+  });
+}
+
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  const base = path.join(os.homedir(), '.config', 'opencode');
+  const artifacts = scanArtifacts(base, {
+    editor: 'opencode',
+    label: 'OpenCode',
+    files: ['config.json'],
+    dirs: ['rules', 'skills'],
+  });
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
+}
+
+module.exports = { name, labels, getChats, getMessages, getArtifacts, getGlobalArtifacts, getMCPServers };

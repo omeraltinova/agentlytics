@@ -1016,4 +1016,18 @@ function getMCPServers() {
   ];
 }
 
-module.exports = { name, labels, getChats, getMessages, resetCache, getUsage, getArtifacts, getMCPServers };
+function getGlobalArtifacts() {
+  const { scanArtifacts } = require('./base');
+  // Global skills: ~/.gemini/antigravity/skills/<skill-folder>/
+  const base = path.join(HOME, '.gemini', 'antigravity');
+  const artifacts = scanArtifacts(base, {
+    editor: 'antigravity',
+    label: 'Antigravity',
+    files: [],
+    dirs: ['skills'],
+  });
+  for (const a of artifacts) a.scope = 'global';
+  return artifacts;
+}
+
+module.exports = { name, labels, getChats, getMessages, resetCache, getUsage, getArtifacts, getGlobalArtifacts, getMCPServers };
