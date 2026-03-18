@@ -517,7 +517,7 @@ function getArtifacts(folder) {
     editor: 'codex',
     label: 'Codex',
     files: ['AGENTS.md', 'AGENTS.override.md', 'codex.md', '.codex/config.toml'],
-    dirs: ['.agents/skills'],
+    dirs: [],
   });
 }
 
@@ -532,9 +532,11 @@ function getGlobalArtifacts() {
   });
 
   // Deep scan skill directories for SKILL.md files
+  const toRelativePath = (...parts) => parts.filter(Boolean).join('/');
+
   const scanSkillDir = (skillsRoot, prefix) => {
     if (!fs.existsSync(skillsRoot) || !fs.statSync(skillsRoot).isDirectory()) return;
-    const scan = (dir) => {
+    const scan = (dir, relDir = '') => {
       try {
         for (const entry of fs.readdirSync(dir)) {
           const full = path.join(dir, entry);
@@ -547,12 +549,13 @@ function getGlobalArtifacts() {
                   const stat = fs.statSync(skillFile);
                   const content = fs.readFileSync(skillFile, 'utf-8');
                   if (!content.trim()) continue;
+                  const relSkillPath = toRelativePath(relDir, entry, 'SKILL.md');
                   artifacts.push({
                     editor: 'codex',
                     editorLabel: 'Codex',
-                    name: `${entry}/SKILL.md`,
+                    name: relSkillPath,
                     path: skillFile,
-                    relativePath: `${prefix}/${entry}/SKILL.md`,
+                    relativePath: toRelativePath(prefix, relSkillPath),
                     size: stat.size,
                     modifiedAt: stat.mtime.getTime(),
                     preview: content.substring(0, 500),
@@ -560,8 +563,7 @@ function getGlobalArtifacts() {
                   });
                 } catch { /* skip */ }
               } else {
-                // Recurse one more level for nested structures
-                scan(full);
+                scan(full, toRelativePath(relDir, entry));
               }
             }
           } catch { /* skip */ }
@@ -571,16 +573,13 @@ function getGlobalArtifacts() {
     scan(skillsRoot);
   };
 
-  // ~/.codex/skills/ (user-installed skills only)
   scanSkillDir(path.join(base, 'skills'), 'skills');
-  // ~/.agents/skills/ (shared cross-editor skills)
-  scanSkillDir(path.join(os.homedir(), '.agents', 'skills'), 'agents/skills');
 
-  // Deduplicate by skill name (user > curated > system)
+  // Preserve distinct artifacts even when file names match.
   const seen = new Map();
   const deduped = [];
   for (const a of artifacts) {
-    const key = a.name || a.path;
+    const key = a.path;
     if (!seen.has(key)) { seen.set(key, true); deduped.push(a); }
   }
   for (const a of deduped) a.scope = 'global';

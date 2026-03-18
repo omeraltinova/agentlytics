@@ -537,18 +537,20 @@ export default function Artifacts() {
                     </span>
                   </div>
                 </div>
-                {fileContent?.content && (() => {
-                  const tokens = estimateTokens(fileContent.content)
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', color: '#818cf8' }}>
-                        <Type size={9} />
-                        {formatTokens(tokens)} tokens
-                      </span>
-                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', color: '#22c55e' }}>
-                        <DollarSign size={9} />
-                        {estimateCost(tokens)}
-                      </span>
+	                {fileContent?.content && (() => {
+	                  const tokens = estimateTokens(fileContent.content)
+	                  const tokenTooltip = `${formatTokens(tokens)} estimated tokens. Based on a rough approximation of ~4 characters per token.`
+	                  const costTooltip = `${estimateCost(tokens)} estimated input cost. Calculated using an average rate of $3 per 1M tokens. This is a rough approximation, not actual billing.`
+	                  return (
+	                    <div className="flex items-center gap-2">
+	                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" title={tokenTooltip} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', color: '#818cf8' }}>
+	                        <Type size={9} />
+	                        {formatTokens(tokens)} tokens
+	                      </span>
+	                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" title={costTooltip} style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', color: '#22c55e' }}>
+	                        <DollarSign size={9} />
+	                        {estimateCost(tokens)}
+	                      </span>
                     </div>
                   )
                 })()}

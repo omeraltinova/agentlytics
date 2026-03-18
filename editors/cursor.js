@@ -423,7 +423,7 @@ function getArtifacts(folder) {
     editor: 'cursor',
     label: 'Cursor',
     files: ['.cursorrules', 'AGENTS.md', '.cursor/hooks.json'],
-    dirs: ['.cursor/rules', '.cursor/plans', '.cursor/skills', '.cursor/commands', '.cursor/agents', '.agents/skills'],
+    dirs: ['.cursor/rules', '.cursor/plans', '.cursor/skills', '.cursor/commands', '.cursor/agents'],
   });
 }
 

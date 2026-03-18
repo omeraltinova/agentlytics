@@ -6,6 +6,7 @@ const vscode = require('./vscode');
 const zed = require('./zed');
 const opencode = require('./opencode');
 const codex = require('./codex');
+const agents = require('./agents');
 const gemini = require('./gemini');
 const copilot = require('./copilot');
 const cursorAgent = require('./cursor-agent');
@@ -13,7 +14,7 @@ const commandcode = require('./commandcode');
 const goose = require('./goose');
 const kiro = require('./kiro');
 
-const editors = [cursor, windsurf, antigravity, claude, vscode, zed, opencode, codex, gemini, copilot, cursorAgent, commandcode, goose, kiro];
+const editors = [cursor, windsurf, antigravity, claude, vscode, zed, opencode, codex, agents, gemini, copilot, cursorAgent, commandcode, goose, kiro];
 
 // Build a unified source → display-label map from all editor modules
 const editorLabels = {};
@@ -103,7 +104,7 @@ function getAllArtifacts(folder) {
         editor: '_general',
         label: 'General',
         files: ['AGENTS.md', 'AGENTS.override.md', '.mcp.json', 'plan.md', 'progress.md', 'TODO.md', 'CONVENTIONS.md', 'ARCHITECTURE.md', 'PLANNING.md'],
-        dirs: ['.agents/skills'],
+        dirs: [],
       }));
     } catch { /* skip */ }
   }
@@ -124,8 +125,6 @@ function getAllArtifacts(folder) {
  * These are user-level artifacts not tied to any specific project.
  */
 function getAllGlobalArtifacts() {
-  const { scanArtifacts } = require('./base');
-  const os = require('os');
   const artifacts = [];
 
   for (const editor of editors) {
@@ -134,19 +133,6 @@ function getAllGlobalArtifacts() {
       artifacts.push(...editor.getGlobalArtifacts());
     } catch { /* skip broken adapters */ }
   }
-
-  // Editor-agnostic shared skills: ~/.agents/skills/
-  try {
-    const agentsBase = path.join(os.homedir(), '.agents');
-    const shared = scanArtifacts(agentsBase, {
-      editor: '_general',
-      label: 'Shared',
-      files: [],
-      dirs: ['skills'],
-    });
-    for (const a of shared) a.scope = 'global';
-    artifacts.push(...shared);
-  } catch { /* skip */ }
 
   // Deduplicate by path
   const seen = new Map();

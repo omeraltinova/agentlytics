@@ -1,4 +1,5 @@
 export const EDITOR_COLORS = {
+  'agents': '#64748b',
   'cursor': '#f59e0b',
   'windsurf': '#06b6d4',
   'windsurf-next': '#22d3ee',
@@ -19,6 +20,7 @@ export const EDITOR_COLORS = {
 };
 
 export const EDITOR_LABELS = {
+  'agents': 'Agents',
   'cursor': 'Cursor',
   'windsurf': 'Windsurf',
   'windsurf-next': 'Windsurf Next',

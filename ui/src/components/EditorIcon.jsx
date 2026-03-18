@@ -19,6 +19,7 @@ const PATHS = {
 
 // Map editor IDs to icon paths
 const EDITOR_ICONS = {
+  'agents': 'command',
   'cursor': 'cursor',
   'cursor-agent': 'cursor',
   'windsurf': 'windsurf',
