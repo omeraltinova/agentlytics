@@ -855,6 +855,8 @@ function getMessages(chat) {
 // ============================================================
 
 function getUsage() {
+  const { isSubscriptionAccessAllowed } = require('./base');
+  if (!isSubscriptionAccessAllowed()) return null;
   const resp = callRpc('GetUserStatus', {});
   if (!resp || !resp.userStatus) return null;
 

@@ -253,37 +253,48 @@ const BOT_STYLES = [
 ];
 
 (async () => {
-  // ── Ask for keychain access permission (first run only) ──
+  // ── Ask for subscription access permission (first run only) ──
   const CONFIG_DIR = path.join(os.homedir(), '.agentlytics');
   const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
   let agentConfig = {};
   try { agentConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')); } catch {}
 
-  if (agentConfig.allowKeychainAccess === undefined) {
-    // Only relevant on macOS / Linux where keychain/secret-tool is used
-    if (process.platform === 'darwin' || process.platform === 'linux') {
-      const storeName = process.platform === 'darwin' ? 'Keychain' : 'secret store';
-      console.log(chalk.yellow(`  ⚠ Some subscription details (e.g. Claude Code) require ${storeName} access.`));
-      console.log(chalk.dim(`    This reads stored credentials to show plan/usage info.`));
-      console.log('');
-      const readline = require('readline');
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const answer = await new Promise(r => {
-        rl.question(chalk.bold(`  Allow ${storeName} access for subscription details? (y/N) `), (a) => {
-          rl.close();
-          r(a.trim().toLowerCase());
-        });
+  if (agentConfig.allowSubscriptionAccess === undefined) {
+    console.log(chalk.yellow('  ⚠ Subscription & usage details require access to local auth tokens.'));
+    console.log('');
+    console.log(chalk.dim('    To show your plan and usage info, Agentlytics needs to read'));
+    console.log(chalk.dim('    locally stored tokens from the following sources:'));
+    console.log('');
+    console.log(chalk.dim('      • Claude Code  – macOS Keychain / Linux secret-tool'));
+    console.log(chalk.dim('      • Cursor       – local SQLite (state.vscdb)'));
+    console.log(chalk.dim('      • Copilot      – ~/.config/github-copilot/apps.json'));
+    console.log(chalk.dim('      • VS Code      – ~/.config/github-copilot/apps.json'));
+    console.log(chalk.dim('      • Codex        – local auth.json (JWT decode only)'));
+    console.log(chalk.dim('      • Windsurf     – local SQLite (state.vscdb)'));
+    console.log('');
+    console.log(chalk.dim('    These tokens are used to query each editor\'s own API for'));
+    console.log(chalk.dim('    your plan name and usage limits.'));
+    console.log('');
+    console.log(chalk.bold.white('    → Tokens are kept in-memory only and never sent to any'));
+    console.log(chalk.bold.white('      third-party service. They are discarded after the request.'));
+    console.log('');
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise(r => {
+      rl.question(chalk.bold('  Allow local token inspection for subscription details? (y/N) '), (a) => {
+        rl.close();
+        r(a.trim().toLowerCase());
       });
-      agentConfig.allowKeychainAccess = answer === 'y' || answer === 'yes';
-      if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(agentConfig, null, 2));
-      if (agentConfig.allowKeychainAccess) {
-        console.log(chalk.green(`  ✓ ${storeName} access enabled`));
-      } else {
-        console.log(chalk.dim(`  – ${storeName} access skipped (subscription details won't be collected)`));
-      }
-      console.log('');
+    });
+    agentConfig.allowSubscriptionAccess = answer === 'y' || answer === 'yes';
+    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(agentConfig, null, 2));
+    if (agentConfig.allowSubscriptionAccess) {
+      console.log(chalk.green('  ✓ Subscription access enabled'));
+    } else {
+      console.log(chalk.dim('  – Subscription access skipped (plan/usage details won\'t be collected)'));
     }
+    console.log('');
   }
 
   let tick = 0;

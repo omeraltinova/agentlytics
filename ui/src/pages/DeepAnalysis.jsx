@@ -227,12 +227,13 @@ export default function DeepAnalysis({ overview }) {
   // Computed insights
   const insights = useMemo(() => {
     if (!data) return null
-    const totalTok = data.totalInputTokens + data.totalOutputTokens
+    const totalTok = data.totalInputTokens + data.totalOutputTokens + data.totalCacheRead + data.totalCacheWrite
     const msgsPerSession = data.analyzedChats > 0 ? (data.totalMessages / data.analyzedChats).toFixed(1) : 0
     const toolsPerSession = data.analyzedChats > 0 ? (data.totalToolCalls / data.analyzedChats).toFixed(1) : 0
     const tokPerMsg = data.totalMessages > 0 ? Math.round(totalTok / data.totalMessages) : 0
-    const cacheHitRate = data.totalInputTokens > 0 ? ((data.totalCacheRead / data.totalInputTokens) * 100).toFixed(1) : 0
-    const outputRatio = data.totalInputTokens > 0 ? (data.totalOutputTokens / data.totalInputTokens).toFixed(2) : 0
+    const totalInputAll = data.totalInputTokens + data.totalCacheRead + data.totalCacheWrite
+    const cacheHitRate = totalInputAll > 0 ? ((data.totalCacheRead / totalInputAll) * 100).toFixed(1) : 0
+    const outputRatio = totalInputAll > 0 ? (data.totalOutputTokens / totalInputAll).toFixed(3) : 0
     const aiVsHuman = data.totalUserChars > 0 ? (data.totalAssistantChars / data.totalUserChars).toFixed(1) : 0
     return { totalTok, msgsPerSession, toolsPerSession, tokPerMsg, cacheHitRate, outputRatio, aiVsHuman }
   }, [data])
@@ -300,15 +301,17 @@ export default function DeepAnalysis({ overview }) {
                 <div>
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span style={{ color: 'var(--c-text2)' }}>input tokens</span>
-                    <span className="font-bold" style={{ color: 'var(--c-white)' }}>{formatNumber(data.totalInputTokens)}</span>
+                    <span className="font-bold" style={{ color: 'var(--c-white)' }}>{formatNumber(data.totalInputTokens + data.totalCacheRead + data.totalCacheWrite)}</span>
                   </div>
                   <ProportionBar segments={[
-                    { label: 'Fresh input', value: data.totalInputTokens - data.totalCacheRead, color: '#6366f1' },
+                    { label: 'Fresh input', value: data.totalInputTokens, color: '#6366f1' },
+                    { label: 'Cache write', value: data.totalCacheWrite, color: '#fbbf24' },
                     { label: 'Cache read', value: data.totalCacheRead, color: '#34d399' },
                   ]} />
                   <div className="flex items-center gap-3 mt-1 text-[10px]">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#6366f1' }} /> fresh {formatNumber(data.totalInputTokens - data.totalCacheRead)}</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#34d399' }} /> cached {formatNumber(data.totalCacheRead)}</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#6366f1' }} /> fresh {formatNumber(data.totalInputTokens)}</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#fbbf24' }} /> cache write {formatNumber(data.totalCacheWrite)}</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#34d399' }} /> cache read {formatNumber(data.totalCacheRead)}</span>
                   </div>
                 </div>
                 {/* Output tokens */}

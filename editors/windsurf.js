@@ -476,6 +476,9 @@ function getWindsurfApiKey(appName) {
 }
 
 function getUsage() {
+  const { isSubscriptionAccessAllowed } = require('./base');
+  if (!isSubscriptionAccessAllowed()) return [];
+
   const results = [];
 
   for (const variant of VARIANTS) {

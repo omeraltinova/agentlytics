@@ -355,6 +355,8 @@ function fetchCopilotStatus(token) {
 }
 
 async function getUsage() {
+  const { isSubscriptionAccessAllowed } = require('./base');
+  if (!isSubscriptionAccessAllowed()) return null;
   const creds = getCopilotToken();
   if (!creds) return null;
 

@@ -477,6 +477,8 @@ function decodeJwtPayload(token) {
 }
 
 async function getUsage() {
+  const { isSubscriptionAccessAllowed } = require('./base');
+  if (!isSubscriptionAccessAllowed()) return null;
   const auth = getCodexAuth();
   if (!auth || !auth.tokens) return null;
 

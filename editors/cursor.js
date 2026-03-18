@@ -409,6 +409,8 @@ function cursorApiFetch(endpoint, token) {
 }
 
 async function getUsage() {
+  const { isSubscriptionAccessAllowed } = require('./base');
+  if (!isSubscriptionAccessAllowed()) return null;
   const token = getCursorAccessToken();
   if (!token) return null;
 

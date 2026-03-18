@@ -1,7 +1,18 @@
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 const HOME = os.homedir();
+
+// --- Permission check ---
+
+function isSubscriptionAccessAllowed() {
+  try {
+    const configPath = path.join(HOME, '.agentlytics', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return config.allowSubscriptionAccess === true;
+  } catch { return false; }
+}
 
 // --- Platform utilities ---
 
@@ -303,6 +314,7 @@ function queryMcpServerToolsStdio(server, timeout) {
 
 module.exports = {
   getAppDataPath,
+  isSubscriptionAccessAllowed,
   scanArtifacts,
   parseMcpConfigFile,
   queryMcpServerTools,
