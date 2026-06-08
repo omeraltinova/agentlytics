@@ -94,6 +94,7 @@ app.get('/api/chats', (req, res) => {
         bubbleCount: c.bubble_count,
         topModel: c.top_model || null,
         cost: c.cost || 0,
+        providerCost: ['devin', 'devin-next', 'windsurf', 'windsurf-next'].includes(c.source) ? (c.provider_cost || 0) : 0,
       })),
     });
   } catch (err) {

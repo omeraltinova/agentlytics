@@ -58,6 +58,11 @@ function normalizeEditorSource(source) {
   return source;
 }
 
+const DEVIN_SOURCE_IDS = new Set(['devin', 'devin-next', 'windsurf', 'windsurf-next']);
+function isDevinSource(source) {
+  return DEVIN_SOURCE_IDS.has(source);
+}
+
 let db = null;
 
 // ============================================================
@@ -136,6 +141,8 @@ function initDb() {
       output_tokens INTEGER,
       cache_read INTEGER,
       cache_write INTEGER,
+      provider_cost REAL,
+      usage_only INTEGER DEFAULT 0,
       FOREIGN KEY (chat_id) REFERENCES chats(id)
     );
 
@@ -197,6 +204,14 @@ function initDb() {
   // Store schema version so future runs can detect mismatches
   db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION.toString());
 
+  const messageColumns = new Set(db.prepare('PRAGMA table_info(messages)').all().map(c => c.name));
+  if (!messageColumns.has('provider_cost')) {
+    db.prepare('ALTER TABLE messages ADD COLUMN provider_cost REAL').run();
+  }
+  if (!messageColumns.has('usage_only')) {
+    db.prepare('ALTER TABLE messages ADD COLUMN usage_only INTEGER DEFAULT 0').run();
+  }
+
   let sourceMigrationV = 0;
   try {
     const row = db.prepare("SELECT value FROM meta WHERE key = 'source_id_migration_v'").get();
@@ -253,8 +268,8 @@ const insertStat = () => db.prepare(`
 `);
 
 const insertMsg = () => db.prepare(`
-  INSERT INTO messages (chat_id, seq, role, content, model, input_tokens, output_tokens, cache_read, cache_write)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO messages (chat_id, seq, role, content, model, input_tokens, output_tokens, cache_read, cache_write, provider_cost, usage_only)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 const updateChatBubbleCount = () => db.prepare(`
   UPDATE chats SET bubble_count = ? WHERE id = ?
@@ -268,7 +283,7 @@ function analyzeAndStore(chat) {
   if (!messages || messages.length === 0) return;
 
   const stats = {
-    total: messages.length, user: 0, assistant: 0, tool: 0, system: 0,
+    total: 0, user: 0, assistant: 0, tool: 0, system: 0,
     toolCalls: [], models: [],
     userChars: 0, assistantChars: 0,
     inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0,
@@ -288,6 +303,27 @@ function analyzeAndStore(chat) {
   let seq = 0;
   for (const msg of messages) {
     const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    const inputTokens = Number(msg._inputTokens || 0);
+    const outputTokens = Number(msg._outputTokens || 0);
+    const cacheRead = Number(msg._cacheRead || 0);
+    const cacheWrite = Number(msg._cacheWrite || 0);
+
+    if (msg._usageOnly) {
+      const providerCost = Number(msg._providerCost || 0);
+      if (msg._model) stats.models.push(msg._model);
+      stats.inputTokens += inputTokens;
+      stats.outputTokens += outputTokens;
+      stats.cacheRead += cacheRead;
+      stats.cacheWrite += cacheWrite;
+      ins.run(
+        chat.composerId, seq++, msg.role, text, msg._model || null,
+        inputTokens || null, outputTokens || null, cacheRead || null, cacheWrite || null,
+        providerCost || null, 1
+      );
+      continue;
+    }
+
+    stats.total++;
 
     if (msg.role === 'user') {
       stats.user++;
@@ -313,10 +349,10 @@ function analyzeAndStore(chat) {
           }
         }
       }
-      if (msg._inputTokens) stats.inputTokens += msg._inputTokens;
-      if (msg._outputTokens) stats.outputTokens += msg._outputTokens;
-      if (msg._cacheRead) stats.cacheRead += msg._cacheRead;
-      if (msg._cacheWrite) stats.cacheWrite += msg._cacheWrite;
+      if (inputTokens) stats.inputTokens += inputTokens;
+      if (outputTokens) stats.outputTokens += outputTokens;
+      if (cacheRead) stats.cacheRead += cacheRead;
+      if (cacheWrite) stats.cacheWrite += cacheWrite;
     } else if (msg.role === 'tool') {
       stats.tool++;
     } else if (msg.role === 'system') {
@@ -326,10 +362,14 @@ function analyzeAndStore(chat) {
 
     // Store message (truncate very long content for storage)
     const storedContent = text.length > 50000 ? text.substring(0, 50000) : text;
-    ins.run(chat.composerId, seq++, msg.role, storedContent, msg._model || null, msg._inputTokens || null, msg._outputTokens || null, msg._cacheRead || null, msg._cacheWrite || null);
+    ins.run(
+      chat.composerId, seq++, msg.role, storedContent, msg._model || null,
+      inputTokens || null, outputTokens || null, cacheRead || null, cacheWrite || null,
+      null, 0
+    );
   }
 
-  updBubbleCount.run(messages.length, chat.composerId);
+  updBubbleCount.run(stats.total, chat.composerId);
 
   const insStat = insertStat();
   insStat.run(
@@ -435,7 +475,8 @@ function getCachedChats(opts = {}) {
     cs.models AS _models,
     cs.total_input_tokens AS _inTok, cs.total_output_tokens AS _outTok,
     cs.total_cache_read AS _cacheR, cs.total_cache_write AS _cacheW,
-    cs.total_user_chars AS _uChars, cs.total_assistant_chars AS _aChars
+    cs.total_user_chars AS _uChars, cs.total_assistant_chars AS _aChars,
+    COALESCE((SELECT SUM(COALESCE(m.provider_cost, 0)) FROM messages m WHERE m.chat_id = c.id), 0) AS _providerCost
     FROM chats c LEFT JOIN chat_stats cs ON cs.chat_id = c.id WHERE 1=1`;
   const params = [];
   const hf = hiddenFolderFilter(opts, 'c.folder');
@@ -461,12 +502,13 @@ function getCachedChats(opts = {}) {
     } catch { }
     // Per-session cost estimate
     let inTok = r._inTok || 0, outTok = r._outTok || 0;
-    if (inTok === 0 && outTok === 0 && ((r._uChars || 0) > 0 || (r._aChars || 0) > 0)) {
+    if (!isDevinSource(r.source) && inTok === 0 && outTok === 0 && ((r._uChars || 0) > 0 || (r._aChars || 0) > 0)) {
       inTok = Math.round((r._uChars || 0) / 4);
       outTok = Math.round((r._aChars || 0) / 4);
     }
     r.cost = r.top_model ? (calculateCost(r.top_model, inTok, outTok, r._cacheR || 0, r._cacheW || 0) || 0) : 0;
-    delete r._models; delete r._inTok; delete r._outTok; delete r._cacheR; delete r._cacheW; delete r._uChars; delete r._aChars;
+    r.provider_cost = r._providerCost || 0;
+    delete r._models; delete r._inTok; delete r._outTok; delete r._cacheR; delete r._cacheW; delete r._uChars; delete r._aChars; delete r._providerCost;
   }
   return rows;
 }
@@ -587,7 +629,7 @@ function getCachedDailyActivity(opts = {}) {
 }
 
 function getCachedDeepAnalytics(opts = {}) {
-  let sql = 'SELECT cs.* FROM chat_stats cs JOIN chats c ON cs.chat_id = c.id WHERE 1=1';
+  let sql = 'SELECT cs.*, c.source FROM chat_stats cs JOIN chats c ON cs.chat_id = c.id WHERE 1=1';
   const params = [];
   const hf = hiddenFolderFilter(opts, 'c.folder');
   if (hf.sql) { sql += hf.sql; params.push(...hf.params); }
@@ -603,6 +645,7 @@ function getCachedDeepAnalytics(opts = {}) {
   const toolFreq = {};
   const modelFreq = {};
   let totalMessages = 0, totalUserChars = 0, totalAssistantChars = 0;
+  let estimatableUserChars = 0, estimatableAssistantChars = 0;
   let totalToolCalls = 0, totalInputTokens = 0, totalOutputTokens = 0;
   let totalCacheRead = 0, totalCacheWrite = 0;
 
@@ -610,6 +653,10 @@ function getCachedDeepAnalytics(opts = {}) {
     totalMessages += r.total_messages;
     totalUserChars += r.total_user_chars;
     totalAssistantChars += r.total_assistant_chars;
+    if (!isDevinSource(r.source)) {
+      estimatableUserChars += r.total_user_chars;
+      estimatableAssistantChars += r.total_assistant_chars;
+    }
     totalInputTokens += r.total_input_tokens;
     totalOutputTokens += r.total_output_tokens;
     totalCacheRead += r.total_cache_read;
@@ -627,9 +674,9 @@ function getCachedDeepAnalytics(opts = {}) {
 
   // Estimate tokens from chars when no token data available
   let tokensEstimated = false;
-  if (totalInputTokens === 0 && totalOutputTokens === 0 && (totalUserChars > 0 || totalAssistantChars > 0)) {
-    totalInputTokens = Math.round(totalUserChars / 4);
-    totalOutputTokens = Math.round(totalAssistantChars / 4);
+  if (totalInputTokens === 0 && totalOutputTokens === 0 && (estimatableUserChars > 0 || estimatableAssistantChars > 0)) {
+    totalInputTokens = Math.round(estimatableUserChars / 4);
+    totalOutputTokens = Math.round(estimatableAssistantChars / 4);
     tokensEstimated = true;
   }
 
@@ -649,7 +696,7 @@ function getCachedChat(id) {
   if (!chat) return null;
 
   const stats = db.prepare('SELECT * FROM chat_stats WHERE chat_id = ?').get(chat.id);
-  let messages = db.prepare('SELECT role, content, model, input_tokens, output_tokens, cache_read, cache_write FROM messages WHERE chat_id = ? ORDER BY seq').all(chat.id);
+  let messages = db.prepare('SELECT role, content, model, input_tokens, output_tokens, cache_read, cache_write FROM messages WHERE chat_id = ? AND COALESCE(usage_only, 0) = 0 ORDER BY seq').all(chat.id);
 
   // If no cached messages, try fetching live from the editor
   if (messages.length === 0 && !chat.encrypted) {
@@ -665,7 +712,7 @@ function getCachedChat(id) {
       if (liveMessages && liveMessages.length > 0) {
         // Store for next time
         try { analyzeAndStore(reconstructed); } catch { }
-        messages = db.prepare('SELECT role, content, model, input_tokens, output_tokens, cache_read, cache_write FROM messages WHERE chat_id = ? ORDER BY seq').all(chat.id);
+        messages = db.prepare('SELECT role, content, model, input_tokens, output_tokens, cache_read, cache_write FROM messages WHERE chat_id = ? AND COALESCE(usage_only, 0) = 0 ORDER BY seq').all(chat.id);
       }
     } catch { }
   }
@@ -743,7 +790,7 @@ function getCachedProjects(opts = {}) {
   for (const [folder, proj] of Object.entries(map)) {
     const statsDateFilter = dateFilter.replace(/COALESCE\(last_updated_at/g, 'COALESCE(c.last_updated_at').replace(/created_at\)/g, 'c.created_at)');
     const stats = db.prepare(`
-      SELECT cs.models, cs.tool_calls, cs.total_messages, cs.total_input_tokens, cs.total_output_tokens,
+      SELECT c.source, cs.models, cs.tool_calls, cs.total_messages, cs.total_input_tokens, cs.total_output_tokens,
              cs.total_user_chars, cs.total_assistant_chars, cs.total_cache_read, cs.total_cache_write
       FROM chat_stats cs JOIN chats c ON cs.chat_id = c.id
       WHERE c.folder = ?${statsDateFilter}
@@ -753,6 +800,7 @@ function getCachedProjects(opts = {}) {
     const toolFreq = {};
     let totalMessages = 0, totalInputTokens = 0, totalOutputTokens = 0;
     let totalUserChars = 0, totalAssistantChars = 0, totalToolCalls = 0;
+    let estimatableUserChars = 0, estimatableAssistantChars = 0;
     let totalCacheRead = 0, totalCacheWrite = 0;
 
     for (const s of stats) {
@@ -761,6 +809,10 @@ function getCachedProjects(opts = {}) {
       totalOutputTokens += s.total_output_tokens;
       totalUserChars += s.total_user_chars;
       totalAssistantChars += s.total_assistant_chars;
+      if (!isDevinSource(s.source)) {
+        estimatableUserChars += s.total_user_chars;
+        estimatableAssistantChars += s.total_assistant_chars;
+      }
       totalCacheRead += s.total_cache_read;
       totalCacheWrite += s.total_cache_write;
       try { for (const m of JSON.parse(s.models)) { const k = normalizeModelName(m) || m; modelFreq[k] = (modelFreq[k] || 0) + 1; } } catch { }
@@ -769,9 +821,9 @@ function getCachedProjects(opts = {}) {
 
     // Estimate tokens from chars when no token data available
     let tokensEstimated = false;
-    if (totalInputTokens === 0 && totalOutputTokens === 0 && (totalUserChars > 0 || totalAssistantChars > 0)) {
-      totalInputTokens = Math.round(totalUserChars / 4);
-      totalOutputTokens = Math.round(totalAssistantChars / 4);
+    if (totalInputTokens === 0 && totalOutputTokens === 0 && (estimatableUserChars > 0 || estimatableAssistantChars > 0)) {
+      totalInputTokens = Math.round(estimatableUserChars / 4);
+      totalOutputTokens = Math.round(estimatableAssistantChars / 4);
       tokensEstimated = true;
     }
 
@@ -976,6 +1028,8 @@ function getCachedDashboardStats(opts = {}) {
       COALESCE(SUM(cs.total_cache_write), 0) as cacheWrite,
       COALESCE(SUM(cs.total_user_chars), 0) as userChars,
       COALESCE(SUM(cs.total_assistant_chars), 0) as assistantChars,
+      COALESCE(SUM(CASE WHEN c.source NOT IN ('devin', 'devin-next', 'windsurf', 'windsurf-next') THEN cs.total_user_chars ELSE 0 END), 0) as estimatableUserChars,
+      COALESCE(SUM(CASE WHEN c.source NOT IN ('devin', 'devin-next', 'windsurf', 'windsurf-next') THEN cs.total_assistant_chars ELSE 0 END), 0) as estimatableAssistantChars,
       COUNT(*) as sessions
     FROM chat_stats cs JOIN chats c ON cs.chat_id = c.id WHERE 1=1${whereAnd}
   `).get(...params);
@@ -1067,9 +1121,9 @@ function getCachedDashboardStats(opts = {}) {
   let inputTokens = tokenRow.input;
   let outputTokens = tokenRow.output;
   let tokensEstimated = false;
-  if (inputTokens === 0 && outputTokens === 0 && (tokenRow.userChars > 0 || tokenRow.assistantChars > 0)) {
-    inputTokens = Math.round(tokenRow.userChars / 4);
-    outputTokens = Math.round(tokenRow.assistantChars / 4);
+  if (inputTokens === 0 && outputTokens === 0 && (tokenRow.estimatableUserChars > 0 || tokenRow.estimatableAssistantChars > 0)) {
+    inputTokens = Math.round(tokenRow.estimatableUserChars / 4);
+    outputTokens = Math.round(tokenRow.estimatableAssistantChars / 4);
     tokensEstimated = true;
   }
 
@@ -1146,6 +1200,7 @@ function estimateCosts(whereClause = '', params = []) {
     SELECT cs.models, cs.total_user_chars as userChars, cs.total_assistant_chars as asstChars
     FROM chat_stats cs JOIN chats c ON cs.chat_id = c.id
     WHERE cs.models != '[]' AND cs.total_input_tokens = 0 AND cs.total_output_tokens = 0
+      AND c.source NOT IN ('devin', 'devin-next', 'windsurf', 'windsurf-next')
       AND (cs.total_user_chars > 0 OR cs.total_assistant_chars > 0)${whereClause}
   `).all(...params);
 

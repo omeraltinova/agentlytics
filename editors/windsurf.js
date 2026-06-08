@@ -271,15 +271,20 @@ function getSteps(chat) {
   return [];
 }
 
+function getTrajectory(chat) {
+  if (!chat._port || !chat._csrf) return null;
+  return callRpc(chat._port, chat._csrf, 'GetCascadeTrajectory', {
+    cascadeId: chat.composerId,
+  }, chat._extCsrf);
+}
+
 /**
  * Get the tail messages beyond the step limit using generatorMetadata.
  * The last generatorMetadata entry with messagePrompts has the conversation context.
  * We find the overlap with step-based messages by matching the last user message content.
  */
-function getTailMessages(chat, stepMessages) {
-  const resp = callRpc(chat._port, chat._csrf, 'GetCascadeTrajectory', {
-    cascadeId: chat.composerId,
-  }, chat._extCsrf);
+function getTailMessages(chat, stepMessages, trajectoryResp = null) {
+  const resp = trajectoryResp || getTrajectory(chat);
   if (!resp || !resp.trajectory) return [];
 
   const gm = resp.trajectory.generatorMetadata || [];
@@ -333,6 +338,76 @@ function getTailMessages(chat, stepMessages) {
     tail.push({ role, content: prompt });
   }
   return tail;
+}
+
+function modelName(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    return value.model || value.modelUid || value.id || value.name || value.modelId || value.displayName || null;
+  }
+  return String(value);
+}
+
+function getUsageModel(entry, chatModel, usage) {
+  return modelName(usage?.modelUid) ||
+    modelName(usage?.model) ||
+    modelName(chatModel?.modelUid) ||
+    modelName(chatModel?.model) ||
+    modelName(entry?.generatorModelUid) ||
+    modelName(entry?.modelUid) ||
+    modelName(entry?.model) ||
+    modelName(entry?.modelId) ||
+    modelName(entry?.modelName) ||
+    modelName(entry?.plannerConfig?.modelUid) ||
+    modelName(entry?.plannerConfig?.model) ||
+    'unknown';
+}
+
+function getUsageMessages(chat, trajectoryResp = null) {
+  const resp = trajectoryResp || getTrajectory(chat);
+  const gm = resp?.trajectory?.generatorMetadata || [];
+  const byModel = new Map();
+
+  for (const entry of gm) {
+    const chatModel = entry.chatModel || {};
+    const usage = chatModel.usage;
+    if (!usage) continue;
+
+    const model = getUsageModel(entry, chatModel, usage);
+    const row = byModel.get(model) || {
+      model,
+      entries: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      providerCost: 0,
+    };
+
+    row.entries += 1;
+    row.inputTokens += Number(usage.inputTokens || 0);
+    row.outputTokens += Number(usage.outputTokens || 0);
+    row.cacheRead += Number(usage.cacheReadTokens || 0);
+    row.cacheWrite += Number(usage.cacheWriteTokens || 0);
+    row.providerCost += Number(chatModel.modelCost || 0);
+    byModel.set(model, row);
+  }
+
+  return [...byModel.values()]
+    .filter(row => row.inputTokens > 0 || row.outputTokens > 0 || row.cacheRead > 0 || row.cacheWrite > 0 || row.providerCost > 0)
+    .map(row => ({
+      role: 'assistant',
+      content: '[usage aggregate]',
+      _usageOnly: true,
+      _model: row.model,
+      _inputTokens: row.inputTokens,
+      _outputTokens: row.outputTokens,
+      _cacheRead: row.cacheRead,
+      _cacheWrite: row.cacheWrite,
+      _providerCost: row.providerCost,
+      _usageEntries: row.entries,
+    }));
 }
 
 function parseStep(step) {
@@ -452,10 +527,17 @@ function getMessages(chat) {
     if (msg) messages.push(msg);
   }
 
+  const trajectoryResp = getTrajectory(chat);
+
   // If steps are truncated, fill in the tail from generatorMetadata
-  const tail = getTailMessages(chat, messages);
+  const tail = getTailMessages(chat, messages, trajectoryResp);
   if (tail.length > 0) {
     messages.push(...tail);
+  }
+
+  const hasMessageUsage = messages.some(msg => msg._inputTokens || msg._outputTokens || msg._cacheRead || msg._cacheWrite);
+  if (!hasMessageUsage) {
+    messages.push(...getUsageMessages(chat, trajectoryResp));
   }
 
   return messages;
