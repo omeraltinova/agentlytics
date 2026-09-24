@@ -21,7 +21,7 @@ function normalizeModelName(name) {
   if (dotParts.length > 1) {
     const prefixes = dotParts.slice(0, -1);
     const last = dotParts[dotParts.length - 1];
-    if (last.includes('-') && prefixes.every(p => /^[a-z]+$/.test(p))) n = last;
+    if (/^[a-z]/.test(last) && last.includes('-') && prefixes.every(p => !p.includes('-'))) n = last;
   }
 
   // Handle MODEL_CLAUDE_* / MODEL_GPT_* enum constants
